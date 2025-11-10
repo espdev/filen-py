@@ -1,0 +1,72 @@
+[project]
+name = "filen"
+version = "0.1.0"
+description = "Filen client for Python"
+readme = "README.md"
+authors = [
+    { name = "Evgeny Prilepin", email = "esp.home@gmail.com" }
+]
+requires-python = ">=3.11"
+dependencies = []
+
+
+[build-system]
+requires = ["uv_build>=0.9.5,<0.10.0"]
+build-backend = "uv_build"
+
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.4",
+    "poethepoet>=0.37.0",
+    "pre-commit>=4.4.0",
+    "pytest>=9.0.0",
+    "pytest-cov>=7.0.0",
+]
+
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+exclude = [
+    ".ruff_cache",
+    ".cache",
+    ".venv",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",       # All pycodestyle errors
+    "W",       # All pycodestyle warnings
+    "F",       # All Pyflakes errors
+    "A",       # All flake8-builtins
+    "Q",       # Quotes
+    "I",       # Sort imports
+    "T201",    # print found
+    "T203",    # pprint found
+]
+ignore = []
+
+[tool.ruff.lint.flake8-quotes]
+docstring-quotes = "double"
+inline-quotes = "single"
+
+[tool.ruff.lint.isort]
+force-to-top = ["typing"]
+force-sort-within-sections = true
+
+[tool.ruff.format]
+quote-style = "single"
+
+
+[tool.poe.tasks]
+check-fmt = "ruff format . --check"
+check-lint = "ruff check ."
+check = ["check-fmt", "check-lint"]
+
+fix-fmt = "ruff format ."
+fix-lint = "ruff check --fix ."
+fix = ["fix-fmt", "fix-lint"]
+
+test = "pytest -sv ."
+test-cov = "pytest -sv --cov=filen ."
