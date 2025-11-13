@@ -2,25 +2,24 @@ from typing import Any, Awaitable, Callable, Self
 from abc import ABC, abstractmethod
 import asyncio
 from concurrent.futures import Executor, ProcessPoolExecutor, ThreadPoolExecutor, as_completed
-import sys
 
-if sys.version_info >= (3, 14):
+try:
     from concurrent.futures import InterpreterPoolExecutor
+except ImportError:
+
+    class InterpreterPoolExecutor(Executor):
+        def __init__(self, *args, **kwargs): ...
+
 
 from dataclasses import dataclass
 from functools import cached_property, partial
 from multiprocessing.context import BaseContext
+import sys
 from uuid import UUID
 
 from anyio import create_task_group, to_interpreter, to_process, to_thread
 
 type TaskId = str | int | UUID
-
-
-if sys.version_info < (3, 14):
-
-    class InterpreterPoolExecutor(Executor):
-        def __init__(self, *args, **kwargs): ...
 
 
 class TaskGroup:
