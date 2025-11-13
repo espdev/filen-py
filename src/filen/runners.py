@@ -218,7 +218,7 @@ class AsyncRunnerBase(AbstractRunner[AsyncTaskGroup]):
         """Create task group to run several tasks concurrently"""
 
         if return_exceptions:
-            raise NotImplementedError('Return exceptions not implemented.')
+            raise NotImplementedError('Return exceptions are not implemented for task groups in async runners.')
 
         return AsyncTaskGroup(self)
 
