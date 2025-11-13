@@ -40,14 +40,14 @@ def test_runner_task_group(runner_cls):
     task_ids = [1, 2, 't1', 't2', uuid4(), uuid4()]
 
     with runner_cls() as runner:
-        r = set()
+        r = []
 
         with runner.task_group() as gr:
             for n, tid in enumerate(task_ids):
-                r.add((tid, (n, tid)))
+                r.append((tid, (n, tid)))
                 gr.add_task(tid, task, n, tid=tid)
 
-        assert set(gr.results.items()) == r
+        assert list(gr.results.items()) == r
 
 
 @pytest.mark.parametrize('runner_cls', [ThreadRunner, ProcessRunner, InterpreterRunner])
@@ -55,7 +55,7 @@ def test_runner_task_group_error(runner_cls):
     maybe_skip_interpreter_tests(runner_cls)
 
     with runner_cls() as runner:
-        with runner.task_group(return_exceptions=True) as gr:
+        with runner.task_group(exception_in_result=True) as gr:
             gr.add_task('t1', task, 0, 't1')
 
             for n in range(1, 5):
@@ -96,20 +96,20 @@ async def test_async_runner_task_group(runner_cls):
 
     task_ids1 = [1, 2, 't1', 't2', uuid4(), uuid4()]
     task_ids2 = [3, 4, 't3', 't4', uuid4(), uuid4()]
-    r = set()
+    r = []
 
     runner = runner_cls()
 
     async with runner.task_group() as gr:
         for n, tid in enumerate(task_ids1):
-            r.add((tid, (n, tid)))
+            r.append((tid, (n, tid)))
             gr.add_task(tid, task, n, tid=tid)
 
         for n, tid in enumerate(task_ids2):
-            r.add((tid, (n, tid)))
+            r.append((tid, (n, tid)))
             gr.add_task(tid, atask, n, tid=tid)
 
-    assert set(gr.results.items()) == r
+    assert list(gr.results.items()) == r
 
 
 @pytest.mark.parametrize('runner_cls', [AsyncThreadRunner, AsyncProcessRunner, AsyncInterpreterRunner])
@@ -126,6 +126,13 @@ async def test_async_runner_task_group_error(runner_cls):
 
     assert len(gr.results) == 0
 
-    with pytest.raises(NotImplementedError):
-        async with runner.task_group(return_exceptions=True) as gr:
-            gr.add_task(3, error, 3)
+    async with runner.task_group(exception_in_result=True) as gr:
+        gr.add_task(1, task, 1, tid=1)
+        gr.add_task(2, error, 2)
+        gr.add_task(3, atask, 3, tid=3)
+
+    assert gr.results[1] == (1, 1)
+    assert gr.results[3] == (3, 3)
+
+    assert isinstance(gr.results[2], ValueError)
+    assert gr.results[2].args[0] == 2

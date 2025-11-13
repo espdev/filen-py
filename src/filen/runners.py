@@ -25,9 +25,9 @@ type TaskId = str | int | UUID
 class TaskGroup:
     """Task group to run sync code in tasks with storing results by id"""
 
-    def __init__(self, executor: Executor, return_exceptions: bool = False):
+    def __init__(self, executor: Executor, exception_in_result: bool = False):
         self._executor = executor
-        self._return_exceptions = return_exceptions
+        self._exception_in_result = exception_in_result
         self._tasks = {}
         self._results = {}
 
@@ -42,10 +42,14 @@ class TaskGroup:
         *args: P.args,
         **kwargs: P.kwargs,
     ):
+        # keep the order of results in the order tasks were added
+        self._results[task_id] = None
+
         task = self._executor.submit(func, *args, **kwargs)
         self._tasks[task] = task_id
 
     def __enter__(self) -> Self:
+        self._results.clear()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> bool | None:
@@ -55,7 +59,7 @@ class TaskGroup:
             task_id = self._tasks[task]
 
             if exc := task.exception():
-                if self._return_exceptions:
+                if self._exception_in_result:
                     self._results[task_id] = exc
                 else:
                     excs.append(exc)
@@ -70,9 +74,10 @@ class TaskGroup:
 class AsyncTaskGroup:
     """Task group to run sync/async code in async tasks with storing results by id"""
 
-    def __init__(self, runner: 'AsyncRunnerBase') -> None:
+    def __init__(self, runner: 'AsyncRunnerBase', exception_in_result: bool = False) -> None:
         self._runner = runner
         self._runner_name = type(runner).__name__
+        self._exception_in_result = exception_in_result
         self._gr = create_task_group()
         self._results = {}
 
@@ -89,17 +94,27 @@ class AsyncTaskGroup:
     ) -> None:
         """Run a task function in the group concurrently"""
 
+        # keep the order of results in the order tasks were added
+        self._results[task_id] = None
+
         async def afunc(*a):
-            if asyncio.iscoroutinefunction(func):
-                result = await func(*a, **kwargs)
+            try:
+                if asyncio.iscoroutinefunction(func):
+                    result = await func(*a, **kwargs)
+                else:
+                    result = await self._runner.run_sync(func, *a, **kwargs)
+            except Exception as exc:
+                if not self._exception_in_result:
+                    raise
+                self._results[task_id] = exc
             else:
-                result = await self._runner.run_sync(func, *a, **kwargs)
-            self._results[task_id] = result
+                self._results[task_id] = result
 
         name = f'{self._runner_name}-Task-{task_id}'
         self._gr.start_soon(afunc, *args, name=name)
 
     async def __aenter__(self) -> Self:
+        self._results.clear()
         await self._gr.__aenter__()
         return self
 
@@ -107,7 +122,8 @@ class AsyncTaskGroup:
         try:
             return await self._gr.__aexit__(exc_type, exc_val, exc_tb)
         except Exception:
-            self._results.clear()
+            if not self._exception_in_result:
+                self._results.clear()
             raise
 
 
@@ -115,7 +131,7 @@ class AbstractRunner[TTaskGroup: TaskGroup | AsyncTaskGroup](ABC):
     """Abstract class for all runners"""
 
     @abstractmethod
-    def task_group(self, return_exceptions: bool = False) -> TTaskGroup:
+    def task_group(self, exception_in_result: bool = False) -> TTaskGroup:
         pass
 
 
@@ -124,20 +140,20 @@ class RunnerBase(AbstractRunner[TaskGroup]):
 
     @property
     @abstractmethod
-    def executor(self) -> Executor:
+    def _executor(self) -> Executor:
         pass
 
-    def task_group(self, return_exceptions: bool = False) -> TaskGroup:
-        return TaskGroup(self.executor, return_exceptions)
+    def task_group(self, exception_in_result: bool = False) -> TaskGroup:
+        return TaskGroup(self._executor, exception_in_result=exception_in_result)
 
     def shutdown(self, wait: bool = True, cancel_tasks: bool = False) -> None:
-        self.executor.shutdown(wait, cancel_futures=cancel_tasks)
+        self._executor.shutdown(wait, cancel_futures=cancel_tasks)
 
     def __enter__(self) -> Self:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> bool | None:
-        return self.executor.__exit__(exc_type, exc_val, exc_tb)
+        return self._executor.__exit__(exc_type, exc_val, exc_tb)
 
 
 @dataclass
@@ -149,7 +165,7 @@ class ThreadRunner[**P](RunnerBase):
     initargs: P.args = ()
 
     @cached_property
-    def executor(self) -> ThreadPoolExecutor:
+    def _executor(self) -> ThreadPoolExecutor:
         return ThreadPoolExecutor(
             max_workers=self.max_workers,
             thread_name_prefix=type(self).__name__,
@@ -169,7 +185,7 @@ class ProcessRunner[**P](RunnerBase):
     max_tasks_per_child: int | None = None
 
     @cached_property
-    def executor(self) -> ProcessPoolExecutor:
+    def _executor(self) -> ProcessPoolExecutor:
         return ProcessPoolExecutor(
             max_workers=self.max_workers,
             mp_context=self.mp_context,
@@ -192,7 +208,7 @@ class InterpreterRunner[**P](RunnerBase):
             raise RuntimeError('InterpreterRunner can be used only in Python 3.14 and above.')
 
     @cached_property
-    def executor(self) -> InterpreterPoolExecutor:
+    def _executor(self) -> InterpreterPoolExecutor:
         return InterpreterPoolExecutor(
             max_workers=self.max_workers,
             thread_name_prefix=type(self).__name__,
@@ -206,21 +222,18 @@ class AsyncRunnerBase(AbstractRunner[AsyncTaskGroup]):
 
     @property
     @abstractmethod
-    def runner[T](self) -> Callable[[Callable[..., T], ...], Awaitable[T]]:
+    def _run_sync[T](self) -> Callable[[Callable[..., T], ...], Awaitable[T]]:
         pass
 
     async def run_sync[T, **P](self, func: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> T:
-        """Run a sync function as asynchronous"""
+        """Run a sync function in asynchronous context"""
 
-        return await self.runner(partial(func, **kwargs), *args)
+        return await self._run_sync(partial(func, **kwargs), *args)
 
-    def task_group(self, return_exceptions: bool = False) -> AsyncTaskGroup:
+    def task_group(self, exception_in_result: bool = False) -> AsyncTaskGroup:
         """Create task group to run several tasks concurrently"""
 
-        if return_exceptions:
-            raise NotImplementedError('Return exceptions are not implemented for task groups in async runners.')
-
-        return AsyncTaskGroup(self)
+        return AsyncTaskGroup(self, exception_in_result=exception_in_result)
 
 
 @dataclass
@@ -232,7 +245,7 @@ class AsyncThreadRunner(AsyncRunnerBase):
     limiter: to_thread.CapacityLimiter | None = None
 
     @cached_property
-    def runner(self):
+    def _run_sync(self):
         return partial(
             to_thread.run_sync,
             abandon_on_cancel=self.abandon_on_cancel,
@@ -249,7 +262,7 @@ class AsyncProcessRunner(AsyncRunnerBase):
     limiter: to_process.CapacityLimiter | None = None
 
     @cached_property
-    def runner(self):
+    def _run_sync(self):
         return partial(to_process.run_sync, cancellable=self.cancellable, limiter=self.limiter)
 
 
@@ -264,5 +277,5 @@ class AsyncInterpreterRunner(AsyncRunnerBase):
             raise RuntimeError('AsyncInterpreterRunner can be used only in Python 3.13 and above.')
 
     @cached_property
-    def runner(self):
+    def _run_sync(self):
         return partial(to_interpreter.run_sync, limiter=self.limiter)
