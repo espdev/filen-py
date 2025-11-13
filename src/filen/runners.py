@@ -142,6 +142,7 @@ class AsyncTaskGroup:
             res = await self._tg.__aexit__(exc_type, exc_val, exc_tb)
             if self._tg.cancel_scope.cancelled_caught:
                 self._results.clear()
+            self._tg = None
             return res
         except Exception:
             if not self._exception_in_result:
