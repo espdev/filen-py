@@ -124,8 +124,8 @@ async def test_async_runner_task_group_error(runner_cls):
             gr.add_task(2, atask, 2, tid=2)
             gr.add_task(3, error, 3)
 
+    assert len(gr.results) == 0
+
     with pytest.raises(NotImplementedError):
         async with runner.task_group(return_exceptions=True) as gr:
             gr.add_task(3, error, 3)
-
-    assert len(gr.results) == 0
