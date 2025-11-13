@@ -17,7 +17,8 @@ from multiprocessing.context import BaseContext
 import sys
 from uuid import UUID
 
-from anyio import create_task_group, to_interpreter, to_process, to_thread
+from anyio import CancelScope, create_task_group, to_interpreter, to_process, to_thread
+from anyio.abc import TaskGroup as AnyIOTaskGroup
 
 type TaskId = str | int | UUID
 
@@ -42,6 +43,9 @@ class TaskGroup:
         *args: P.args,
         **kwargs: P.kwargs,
     ):
+        if task_id in self._results:
+            raise ValueError(f'A task with {task_id} task_id is already added.')
+
         # keep the order of results in the order tasks were added
         self._results[task_id] = None
 
@@ -50,6 +54,7 @@ class TaskGroup:
 
     def __enter__(self) -> Self:
         self._results.clear()
+        self._tasks.clear()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> bool | None:
@@ -78,12 +83,18 @@ class AsyncTaskGroup:
         self._runner = runner
         self._runner_name = type(runner).__name__
         self._exception_in_result = exception_in_result
-        self._gr = create_task_group()
+        self._tg: AnyIOTaskGroup | None = None
         self._results = {}
 
     @property
     def results(self) -> dict[TaskId, Any]:
         return self._results
+
+    @property
+    def cancel_scope(self) -> CancelScope:
+        if not self._tg:
+            raise ValueError('Task group is not initialized. The context manager must be used.')
+        return self._tg.cancel_scope
 
     def add_task[T, **P](
         self,
@@ -93,6 +104,12 @@ class AsyncTaskGroup:
         **kwargs: P.kwargs,
     ) -> None:
         """Run a task function in the group concurrently"""
+
+        if self._tg is None:
+            raise ValueError('Task group is not initialized. The context manager must be used.')
+
+        if task_id in self._results:
+            raise ValueError(f'A task with {task_id} task_id is already added.')
 
         # keep the order of results in the order tasks were added
         self._results[task_id] = None
@@ -111,16 +128,18 @@ class AsyncTaskGroup:
                 self._results[task_id] = result
 
         name = f'{self._runner_name}-Task-{task_id}'
-        self._gr.start_soon(afunc, *args, name=name)
+        self._tg.start_soon(afunc, *args, name=name)
 
     async def __aenter__(self) -> Self:
         self._results.clear()
-        await self._gr.__aenter__()
+        self._tg = create_task_group()
+
+        await self._tg.__aenter__()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> bool | None:
         try:
-            return await self._gr.__aexit__(exc_type, exc_val, exc_tb)
+            return await self._tg.__aexit__(exc_type, exc_val, exc_tb)
         except Exception:
             if not self._exception_in_result:
                 self._results.clear()
