@@ -1,0 +1,269 @@
+from typing import Any, Awaitable, Callable, Self
+from abc import ABC, abstractmethod
+import asyncio
+from concurrent.futures import Executor, ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+import sys
+
+if sys.version_info >= (3, 14):
+    from concurrent.futures import InterpreterPoolExecutor
+
+from dataclasses import dataclass
+from functools import cached_property, partial
+from multiprocessing.context import BaseContext
+from uuid import UUID
+
+from anyio import create_task_group, to_interpreter, to_process, to_thread
+
+type TaskId = str | int | UUID
+
+
+if sys.version_info < (3, 14):
+
+    class InterpreterPoolExecutor(Executor):
+        def __init__(self, *args, **kwargs): ...
+
+
+class TaskGroup:
+    """Task group to run sync code in tasks with storing results by id"""
+
+    def __init__(self, executor: Executor, return_exceptions: bool = False):
+        self._executor = executor
+        self._return_exceptions = return_exceptions
+        self._tasks = {}
+        self._results = {}
+
+    @property
+    def results(self) -> dict[TaskId, Any]:
+        return self._results
+
+    def add_task[T, **P](
+        self,
+        task_id: TaskId,
+        func: Callable[P, T],
+        *args: P.args,
+        **kwargs: P.kwargs,
+    ):
+        task = self._executor.submit(func, *args, **kwargs)
+        self._tasks[task] = task_id
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> bool | None:
+        excs = []
+
+        for task in as_completed(self._tasks):
+            task_id = self._tasks[task]
+
+            if exc := task.exception():
+                if self._return_exceptions:
+                    self._results[task_id] = exc
+                else:
+                    excs.append(exc)
+            else:
+                self._results[task_id] = task.result()
+
+        if excs:
+            self._results.clear()
+            raise ExceptionGroup('unhandled errors in a TaskGroup', excs)
+
+
+class AsyncTaskGroup:
+    """Task group to run sync/async code in async tasks with storing results by id"""
+
+    def __init__(self, runner: 'AsyncRunnerBase') -> None:
+        self._runner = runner
+        self._runner_name = type(runner).__name__
+        self._gr = create_task_group()
+        self._results = {}
+
+    @property
+    def results(self) -> dict[TaskId, Any]:
+        return self._results
+
+    def add_task[T, **P](
+        self,
+        task_id: TaskId,
+        func: Callable[P, T | Awaitable[T]],
+        *args: P.args,
+        **kwargs: P.kwargs,
+    ) -> None:
+        """Run a task function in the group concurrently"""
+
+        async def afunc(*a):
+            if asyncio.iscoroutinefunction(func):
+                result = await func(*a, **kwargs)
+            else:
+                result = await self._runner.run_sync(func, *a, **kwargs)
+            self._results[task_id] = result
+
+        name = f'{self._runner_name}-Task-{task_id}'
+        self._gr.start_soon(afunc, *args, name=name)
+
+    async def __aenter__(self) -> Self:
+        await self._gr.__aenter__()
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> bool | None:
+        try:
+            return await self._gr.__aexit__(exc_type, exc_val, exc_tb)
+        except Exception:
+            self._results.clear()
+            raise
+
+
+class AbstractRunner[TTaskGroup: TaskGroup | AsyncTaskGroup](ABC):
+    """Abstract class for all runners"""
+
+    @abstractmethod
+    def task_group(self, return_exceptions: bool = False) -> TTaskGroup:
+        pass
+
+
+class RunnerBase(AbstractRunner[TaskGroup]):
+    """Base runner to run sync code with support of parallel execution"""
+
+    @property
+    @abstractmethod
+    def executor(self) -> Executor:
+        pass
+
+    def task_group(self, return_exceptions: bool = False) -> TaskGroup:
+        return TaskGroup(self.executor, return_exceptions)
+
+    def shutdown(self, wait: bool = True, cancel_tasks: bool = False) -> None:
+        self.executor.shutdown(wait, cancel_futures=cancel_tasks)
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> bool | None:
+        return self.executor.__exit__(exc_type, exc_val, exc_tb)
+
+
+@dataclass
+class ThreadRunner[**P](RunnerBase):
+    """Thread pool runner"""
+
+    max_workers: int | None = None
+    initializer: Callable[P, None] | None = None
+    initargs: P.args = ()
+
+    @cached_property
+    def executor(self) -> ThreadPoolExecutor:
+        return ThreadPoolExecutor(
+            max_workers=self.max_workers,
+            thread_name_prefix=type(self).__name__,
+            initializer=self.initializer,
+            initargs=self.initargs,
+        )
+
+
+@dataclass
+class ProcessRunner[**P](RunnerBase):
+    """Process pool runner"""
+
+    max_workers: int | None = None
+    mp_context: BaseContext | None = None
+    initializer: Callable[P, None] | None = None
+    initargs: P.args = ()
+    max_tasks_per_child: int | None = None
+
+    @cached_property
+    def executor(self) -> ProcessPoolExecutor:
+        return ProcessPoolExecutor(
+            max_workers=self.max_workers,
+            mp_context=self.mp_context,
+            initializer=self.initializer,
+            initargs=self.initargs,
+            max_tasks_per_child=self.max_tasks_per_child,
+        )
+
+
+@dataclass
+class InterpreterRunner[**P](RunnerBase):
+    """Interpreter pool runner"""
+
+    max_workers: int | None = None
+    initializer: Callable[P, None] | None = None
+    initargs: P.args = ()
+
+    def __post_init__(self):
+        if sys.version_info < (3, 14):
+            raise RuntimeError('InterpreterRunner can be used only in Python 3.14 and above.')
+
+    @cached_property
+    def executor(self) -> InterpreterPoolExecutor:
+        return InterpreterPoolExecutor(
+            max_workers=self.max_workers,
+            thread_name_prefix=type(self).__name__,
+            initializer=self.initializer,
+            initargs=self.initargs,
+        )
+
+
+class AsyncRunnerBase(AbstractRunner[AsyncTaskGroup]):
+    """Base runner to run sync code in asynchronous event loop"""
+
+    @property
+    @abstractmethod
+    def runner[T](self) -> Callable[[Callable[..., T], ...], Awaitable[T]]:
+        pass
+
+    async def run_sync[T, **P](self, func: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> T:
+        """Run a sync function as asynchronous"""
+
+        return await self.runner(partial(func, **kwargs), *args)
+
+    def task_group(self, return_exceptions: bool = False) -> AsyncTaskGroup:
+        """Create task group to run several tasks concurrently"""
+
+        if return_exceptions:
+            raise NotImplementedError('Return exceptions not implemented.')
+
+        return AsyncTaskGroup(self)
+
+
+@dataclass
+class AsyncThreadRunner(AsyncRunnerBase):
+    """Run sync code in a thread pool"""
+
+    abandon_on_cancel: bool = False
+    cancellable: bool | None = None
+    limiter: to_thread.CapacityLimiter | None = None
+
+    @cached_property
+    def runner(self):
+        return partial(
+            to_thread.run_sync,
+            abandon_on_cancel=self.abandon_on_cancel,
+            cancellable=self.cancellable,
+            limiter=self.limiter,
+        )
+
+
+@dataclass
+class AsyncProcessRunner(AsyncRunnerBase):
+    """Run sync code in a process pool"""
+
+    cancellable: bool | None = None
+    limiter: to_process.CapacityLimiter | None = None
+
+    @cached_property
+    def runner(self):
+        return partial(to_process.run_sync, cancellable=self.cancellable, limiter=self.limiter)
+
+
+@dataclass
+class AsyncInterpreterRunner(AsyncRunnerBase):
+    """Run sync code in a separate interpreter"""
+
+    limiter: to_interpreter.CapacityLimiter | None = None
+
+    def __post_init__(self):
+        if sys.version_info < (3, 13):
+            raise RuntimeError('AsyncInterpreterRunner can be used only in Python 3.13 and above.')
+
+    @cached_property
+    def runner(self):
+        return partial(to_interpreter.run_sync, limiter=self.limiter)
