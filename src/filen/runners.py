@@ -139,7 +139,10 @@ class AsyncTaskGroup:
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> bool | None:
         try:
-            return await self._tg.__aexit__(exc_type, exc_val, exc_tb)
+            res = await self._tg.__aexit__(exc_type, exc_val, exc_tb)
+            if self._tg.cancel_scope.cancelled_caught:
+                self._results.clear()
+            return res
         except Exception:
             if not self._exception_in_result:
                 self._results.clear()
