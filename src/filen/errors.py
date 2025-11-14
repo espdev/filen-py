@@ -1,3 +1,4 @@
+from enum import StrEnum, auto
 from http import HTTPStatus
 
 from httpx import HTTPError, HTTPStatusError, TimeoutException
@@ -28,6 +29,10 @@ class RequestFailedError(RequestError):
         self.code = code
 
 
+class AuthenticationError(RequestFailedError):
+    pass
+
+
 class ResponseParseError(FilenError):
     pass
 
@@ -56,6 +61,11 @@ class MetadataDecryptError(DecryptError):
     pass
 
 
+class FilenErrorCode(StrEnum):
+    email_or_password_wrong = auto()
+    enter_2fa = auto()
+
+
 class RequestErrorHandler:
     def __enter__(self):
         return self
@@ -66,6 +76,13 @@ class RequestErrorHandler:
 
         match exc_val:
             case RequestFailedError():
+                match exc_val.code:
+                    case FilenErrorCode.email_or_password_wrong | FilenErrorCode.enter_2fa:
+                        raise AuthenticationError(
+                            exc_val.message,
+                            message=exc_val.message,
+                            code=exc_val.code,
+                        ) from exc_val
                 return False
 
             case ResponseParseError():
