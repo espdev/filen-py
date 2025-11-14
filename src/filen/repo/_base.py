@@ -26,7 +26,7 @@ class AsyncRepo(RepoBase[AsyncFilenAPI, AsyncRunnerBase]): ...
 class _RepoDescriptor[TRepo: Repo | AsyncRepo]:
     """Repo descriptor
 
-    To automatically initialize repository instances in the client.
+    Initializes and caches repository instances in the client.
     """
 
     def __init__(self, repo_type: Type[TRepo]) -> None:
