@@ -1,15 +1,12 @@
 from typing import Self
 from abc import ABC, abstractmethod
-from contextlib import contextmanager
 
 from httpx import AsyncClient, Client, Timeout
 
 from filen.api import AsyncFilenAPI, FilenAPI
-from filen.api.models.auth import NO_2FA_CODE_PLACEHOLDER, AuthInfoRequestData, LoginRequestData
-from filen.api.models.user import UserInfoData
-from filen.config import AuthVersion, FilenConfig
-from filen.crypto import decrypt_metadata, derive_password_and_master_key
-from filen.errors import FilenError, RequestFailedError
+from filen.api.models.auth import NO_2FA_CODE_PLACEHOLDER
+from filen.config import FilenConfig
+from filen.repo import AsyncAuth, AsyncUser, Auth, User, repo
 from filen.runners import AsyncRunnerBase, AsyncThreadRunner, RunnerBase, ThreadRunner
 
 type TimeoutType = Timeout | float | tuple[float, float, float, float]
@@ -28,7 +25,8 @@ class FilenClientBase[
 ](ABC):
     """Base class for Filen sync/async clients"""
 
-    supported_auth_versions = {AuthVersion.v2}
+    _auth: Auth | AsyncAuth
+    user: User | AsyncUser
 
     def __init__(
         self,
@@ -59,10 +57,6 @@ class FilenClientBase[
         return self._config
 
     @property
-    def api(self) -> TAPI:
-        return self._api
-
-    @property
     def timeout(self) -> Timeout:
         return self._http_client.timeout  # noqa
 
@@ -82,61 +76,18 @@ class FilenClientBase[
     def _create_api(self) -> TAPI:
         pass
 
-    def _check_auth_version(self, auth_version: int):
-        if auth_version not in self.supported_auth_versions:
-            raise FilenError(f'Unsupported auth version {auth_version}.')
-
-    @contextmanager
-    def _check_login(self):
-        res = {'ok': self.config.is_valid_for_auth() and self.config.auth_version in self.supported_auth_versions}
-        try:
-            yield res
-        except RequestFailedError as err:
-            if err.code == 'invalid_params':
-                res['ok'] = False
-            else:
-                raise
-
 
 class FilenClient(FilenClientBase[Client, FilenAPI, RunnerBase]):
     """Filen client"""
 
+    _auth: Auth = repo(Auth)
+    user: User = repo(User)
+
     def login(self, email: str, password: str, two_factor_code: str = NO_2FA_CODE_PLACEHOLDER) -> None:
-        auth_info = self.api.auth.info(AuthInfoRequestData(email=email))
-        self._check_auth_version(auth_info.data.auth_version)
-
-        derived_info = derive_password_and_master_key(password, auth_info.data.salt)
-
-        login_info = self.api.auth.login(
-            LoginRequestData(
-                email=email,  # noqa
-                password=derived_info.password,
-                two_factor_code=two_factor_code,
-                auth_version=auth_info.data.auth_version,
-            ),
-        )
-
-        with self._runner.task_group() as gr:
-            gr.add_task('master_keys', decrypt_metadata, login_info.data.master_keys, derived_info.master_key)
-            gr.add_task('private_key', decrypt_metadata, login_info.data.private_key, derived_info.master_key)
-
-        master_keys = gr.results['master_keys']
-        private_key = gr.results['private_key']
-
-        self.config.auth_version = auth_info.data.auth_version
-        self.config.api_key = login_info.data.api_key
-        self.config.master_keys = master_keys
-        self.config.public_key = login_info.data.public_key
-        self.config.private_key = private_key
+        self._auth.login(email, password, two_factor_code)
 
     def logged_in(self) -> bool:
-        with self._check_login() as res:
-            if res['ok']:
-                _ = self.user_info()
-        return res['ok']
-
-    def user_info(self) -> UserInfoData:
-        return self.api.user.info().data
+        return self._auth.logged_in()
 
     def _create_default_runner(self) -> RunnerBase:
         return ThreadRunner()
@@ -163,42 +114,14 @@ class FilenClient(FilenClientBase[Client, FilenAPI, RunnerBase]):
 class AsyncFilenClient(FilenClientBase[AsyncClient, AsyncFilenAPI, AsyncRunnerBase]):
     """Filen async client"""
 
+    _auth: AsyncAuth = repo(AsyncAuth)
+    user: AsyncUser = repo(AsyncUser)
+
     async def login(self, email: str, password: str, two_factor_code: str = NO_2FA_CODE_PLACEHOLDER) -> None:
-        auth_info = await self.api.auth.info(AuthInfoRequestData(email=email))
-        self._check_auth_version(auth_info.data.auth_version)
-
-        derived_info = await self._runner.run_sync(derive_password_and_master_key, password, auth_info.data.salt)
-
-        login_info = await self.api.auth.login(
-            LoginRequestData(
-                email=email,  # noqa
-                password=derived_info.password,
-                two_factor_code=two_factor_code,
-                auth_version=auth_info.data.auth_version,
-            ),
-        )
-
-        async with self._runner.task_group() as gr:
-            gr.add_task('master_keys', decrypt_metadata, login_info.data.master_keys, derived_info.master_key)
-            gr.add_task('private_key', decrypt_metadata, login_info.data.private_key, derived_info.master_key)
-
-        master_keys = gr.results['master_keys']
-        private_key = gr.results['private_key']
-
-        self.config.auth_version = auth_info.data.auth_version
-        self.config.api_key = login_info.data.api_key
-        self.config.master_keys = master_keys
-        self.config.public_key = login_info.data.public_key
-        self.config.private_key = private_key
+        await self._auth.login(email, password, two_factor_code)
 
     async def logged_in(self) -> bool:
-        with self._check_login() as res:
-            if res['ok']:
-                _ = await self.user_info()
-        return res['ok']
-
-    async def user_info(self) -> UserInfoData:
-        return (await self.api.user.info()).data
+        return await self._auth.logged_in()
 
     def _create_default_runner(self) -> AsyncRunnerBase:
         return AsyncThreadRunner()
