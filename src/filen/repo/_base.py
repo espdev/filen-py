@@ -23,7 +23,7 @@ class Repo(RepoBase[FilenAPI, RunnerBase]): ...
 class AsyncRepo(RepoBase[AsyncFilenAPI, AsyncRunnerBase]): ...
 
 
-class RepoDescriptor[TRepo: Repo | AsyncRepo]:
+class _RepoDescriptor[TRepo: Repo | AsyncRepo]:
     """Repo descriptor
 
     To automatically initialize repository instances in the client.
@@ -54,4 +54,4 @@ class RepoDescriptor[TRepo: Repo | AsyncRepo]:
         return self._repo[cid]
 
 
-repo = RepoDescriptor
+repo = _RepoDescriptor[Repo | AsyncRepo]
