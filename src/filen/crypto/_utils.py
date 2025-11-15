@@ -1,12 +1,19 @@
+from dataclasses import dataclass
 from hashlib import sha512
 
-from ._base import DerivedPasswordAndMasterKey, master_key_pbkdf2hmac
+from ._base import master_key_pbkdf2hmac
 from ._metadata import (
     MetadataEncryptionVersion,
     current_metadata_encryption_version,
     decrypt_metadata,
     encrypt_metadata,
 )
+
+
+@dataclass
+class DerivedPasswordAndMasterKey:
+    password: str
+    master_key: str
 
 
 def derive_password_and_master_key(password: str, salt: str) -> DerivedPasswordAndMasterKey:

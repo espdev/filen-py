@@ -1,5 +1,5 @@
 from typing import Final, NoReturn, Type
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from base64 import b64decode, b64encode
 from enum import StrEnum
 from secrets import token_bytes, token_hex
@@ -10,7 +10,7 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 from filen.errors import FilenError, MetadataDecryptError, MetadataEncryptError, MetadataEncryptionVersionError
 
-from ._base import MASTER_KEY_LENGTH, AbstractCipher, backend, create_aes_256_gcm_cipher
+from ._base import MASTER_KEY_LENGTH, backend, create_aes_256_gcm_cipher
 
 
 class MetadataEncryptionVersion(StrEnum):
@@ -24,7 +24,7 @@ class MetadataEncryptionVersion(StrEnum):
 current_metadata_encryption_version = MetadataEncryptionVersion.v2
 
 
-class MetadataCipherBase(AbstractCipher):
+class MetadataCipherBase(ABC):
     """Base metadata cipher class"""
 
     ENCRYPTION_VERSION: MetadataEncryptionVersion
@@ -35,7 +35,15 @@ class MetadataCipherBase(AbstractCipher):
 
     @classmethod
     @abstractmethod
-    def verify_encryption_version(cls, content: str, raise_error: bool = False) -> bool | NoReturn:
+    def verify_encryption_version(cls, metadata: str, raise_error: bool = False) -> bool | NoReturn:
+        pass
+
+    @abstractmethod
+    def encrypt(self, metadata: str) -> str:
+        pass
+
+    @abstractmethod
+    def decrypt(self, metadata: str) -> str:
         pass
 
 
@@ -43,8 +51,8 @@ class MetadataCipherNewBase(MetadataCipherBase):
     VERSION_LENGTH: Final = 3
 
     @classmethod
-    def verify_encryption_version(cls, content: str, raise_error: bool = False) -> bool | NoReturn:
-        enc_ver = content[: cls.VERSION_LENGTH]
+    def verify_encryption_version(cls, metadata: str, raise_error: bool = False) -> bool | NoReturn:
+        enc_ver = metadata[: cls.VERSION_LENGTH]
         is_ok = enc_ver == cls.ENCRYPTION_VERSION
 
         if not is_ok and raise_error:

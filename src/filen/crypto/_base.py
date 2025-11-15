@@ -1,6 +1,4 @@
 from typing import Final
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from functools import partial
 
 from cryptography.hazmat.backends import default_backend
@@ -30,19 +28,3 @@ def create_aes_256_gcm_cipher(key: bytes, iv: bytes) -> Cipher:
         mode=GCM(iv),
         backend=backend,
     )
-
-
-@dataclass
-class DerivedPasswordAndMasterKey:
-    password: str
-    master_key: str
-
-
-class AbstractCipher(ABC):
-    @abstractmethod
-    def encrypt(self, content: str) -> str:
-        pass
-
-    @abstractmethod
-    def decrypt(self, content: str) -> str:
-        pass
