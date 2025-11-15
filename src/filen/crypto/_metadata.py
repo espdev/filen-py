@@ -185,20 +185,31 @@ def encrypt_metadata(metadata: str, key: str) -> str:
         raise MetadataEncryptError(f'Metadata encryption failed due to {err}') from err
 
 
-def decrypt_metadata(metadata: str, key: str) -> str:
-    """Decrypt metadata by existing metadata ciphers"""
+def decrypt_metadata(metadata: str, keys: str | list[str]) -> str:
+    """Decrypt metadata by existing metadata ciphers and a set of keys"""
 
-    try:
-        for metadata_cipher_cls in metadata_ciphers.values():
-            if metadata_cipher_cls is None:
-                continue
-            metadata_cipher = metadata_cipher_cls(key)
-            if metadata_cipher.verify_encryption_version(metadata):
-                return metadata_cipher.decrypt(metadata)
+    if isinstance(keys, str):
+        keys = [keys]
 
-        return current_metadata_cipher(key).decrypt(metadata)
+    err: Exception | None = None
 
-    except MetadataEncryptionVersionError:
-        raise
-    except Exception as err:
-        raise MetadataDecryptError(f'Metadata decryption failed due to {err}') from err
+    for key in reversed(keys):
+        try:
+            for metadata_cipher_cls in metadata_ciphers.values():
+                if metadata_cipher_cls is None:
+                    continue
+                metadata_cipher = metadata_cipher_cls(key)
+                if metadata_cipher.verify_encryption_version(metadata):
+                    return metadata_cipher.decrypt(metadata)
+
+            return current_metadata_cipher(key).decrypt(metadata)
+        except Exception as e:
+            err = e
+
+    match err:
+        case MetadataEncryptionVersionError():
+            raise err
+        case Exception():
+            raise MetadataDecryptError(f'Metadata decryption failed due to {err}') from err
+        case _:
+            raise MetadataDecryptError('This is impossible.')

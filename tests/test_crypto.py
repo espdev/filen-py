@@ -57,6 +57,11 @@ def test_encrypt_decrypt_metadata():
         'that need to be encrypted. Data encryption means encryption of binary file content.'
     )
 
-    key = 'c438c484766b8ff500b0b918fd44f1f643929f7656a648f6b3dd76aea56c121b'
+    key1 = 'c438c484766b8ff500b0b918fd44f1f643929f7656a648f6b3dd76aea56c121b'
+    key2 = '1828d1cba88e28377a3d9c8f64e3aad36a0287fb5f9ad3485f9922b071827aa0'
+    key3 = 'd899ab9d9032c49ff39428964607db67225e338612059776447715d37586eba3'
 
-    assert decrypt_metadata(encrypt_metadata(metadata, key), key) == metadata
+    assert decrypt_metadata(encrypt_metadata(metadata, key1), key1) == metadata
+    assert decrypt_metadata(encrypt_metadata(metadata, key1), [key1, key2, key3]) == metadata
+    assert decrypt_metadata(encrypt_metadata(metadata, key2), [key1, key2, key3]) == metadata
+    assert decrypt_metadata(encrypt_metadata(metadata, key3), [key1, key2, key3]) == metadata
