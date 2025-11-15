@@ -1,4 +1,10 @@
 from ._keypair import KeyPair, create_der_keypair, generate_private_key, keypair_der_to_pem
+from ._masterkey import (
+    DerivedPasswordAndMasterKey,
+    decrypt_master_keys,
+    derive_password_and_master_key,
+    encrypt_master_keys,
+)
 from ._metadata import (
     MetadataCipherBase,
     MetadataEncryptionVersion,
@@ -8,26 +14,20 @@ from ._metadata import (
     encrypt_metadata,
     metadata_ciphers,
 )
-from ._utils import (
-    DerivedPasswordAndMasterKey,
-    decrypt_master_keys,
-    derive_password_and_master_key,
-    encrypt_master_keys,
-)
 
 __all__ = [
     'DerivedPasswordAndMasterKey',
-    'derive_password_and_master_key',
     'MetadataEncryptionVersion',
     'MetadataCipherBase',
+    'KeyPair',
+    'derive_password_and_master_key',
+    'encrypt_master_keys',
+    'decrypt_master_keys',
     'current_metadata_encryption_version',
     'current_metadata_cipher',
     'metadata_ciphers',
     'encrypt_metadata',
     'decrypt_metadata',
-    'encrypt_master_keys',
-    'decrypt_master_keys',
-    'KeyPair',
     'generate_private_key',
     'create_der_keypair',
     'keypair_der_to_pem',

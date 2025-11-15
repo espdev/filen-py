@@ -5,12 +5,10 @@ from enum import StrEnum
 from secrets import token_bytes, token_hex
 
 from cryptography.hazmat.primitives.ciphers import Cipher
-from cryptography.hazmat.primitives.hashes import SHA512
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 from filen.errors import FilenError, MetadataDecryptError, MetadataEncryptError, MetadataEncryptionVersionError
 
-from ._base import MASTER_KEY_LENGTH, backend, create_aes_256_gcm_cipher
+from ._base import create_aes_256_gcm_cipher, create_pbkdf2hmac_sha512
 
 
 class MetadataEncryptionVersion(StrEnum):
@@ -100,12 +98,10 @@ class MetadataCipher002(MetadataCipherNewBase):
     def _create_cipher(self, iv: str) -> Cipher:
         key_e = self._key.encode()
 
-        key = PBKDF2HMAC(
-            algorithm=SHA512(),
+        key = create_pbkdf2hmac_sha512(
             length=self.KEY_LENGTH,
             salt=key_e,
             iterations=1,
-            backend=backend,
         ).derive(key_e)
 
         return create_aes_256_gcm_cipher(
@@ -127,6 +123,7 @@ class MetadataCipher003(MetadataCipherNewBase):
 
     ENCRYPTION_VERSION: Final = MetadataEncryptionVersion.v3
 
+    KEY_HEX_LENGTH: Final = 64
     IV_LENGTH: Final = 12
     IV_HEX_LENGTH: Final = 24
     AUTH_TAG_LENGTH: Final = 16
@@ -161,10 +158,10 @@ class MetadataCipher003(MetadataCipherNewBase):
         return content_decrypted.decode()
 
     def _create_cipher(self, iv: str) -> Cipher:
-        if len(self._key) != MASTER_KEY_LENGTH:
+        if len(self._key) != self.KEY_HEX_LENGTH:
             raise FilenError(
                 f'Invalid key length {len(self._key)} in hex for encrypting metadata. '
-                f'Must be {MASTER_KEY_LENGTH} in hex.'
+                f'Must be {self.KEY_HEX_LENGTH} in hex.'
             )
 
         return create_aes_256_gcm_cipher(

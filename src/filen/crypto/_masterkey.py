@@ -1,12 +1,23 @@
+from typing import Final
 from dataclasses import dataclass
+from functools import partial
 from hashlib import sha512
 
-from ._base import master_key_pbkdf2hmac
+from ._base import create_pbkdf2hmac_sha512
 from ._metadata import (
     MetadataEncryptionVersion,
     current_metadata_encryption_version,
     decrypt_metadata,
     encrypt_metadata,
+)
+
+MASTER_KEY_LENGTH: Final = 64
+DERIVE_MASTER_KEY_ITERATIONS: Final = 200_000
+
+master_key_pbkdf2hmac = partial(
+    create_pbkdf2hmac_sha512,
+    length=MASTER_KEY_LENGTH,
+    iterations=DERIVE_MASTER_KEY_ITERATIONS,
 )
 
 
