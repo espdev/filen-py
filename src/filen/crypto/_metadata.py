@@ -74,24 +74,24 @@ class MetadataCipher002(MetadataCipherNewBase):
 
     B64_CHARSET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
 
-    def encrypt(self, content: str) -> str:
+    def encrypt(self, metadata: str) -> str:
         iv = self._generate_iv()
         cipher = self._create_cipher(iv)
 
         encryptor = cipher.encryptor()
-        encrypted = encryptor.update(content.encode()) + encryptor.finalize()
+        encrypted = encryptor.update(metadata.encode()) + encryptor.finalize()
         auth_tag = encryptor.tag
 
         data_b64 = b64encode(encrypted + auth_tag).decode()
 
         return f'{self.ENCRYPTION_VERSION}{iv}{data_b64}'
 
-    def decrypt(self, content: str) -> str:
-        self.verify_encryption_version(content, raise_error=True)
+    def decrypt(self, metadata: str) -> str:
+        self.verify_encryption_version(metadata, raise_error=True)
 
         ver_length = self.ENCRYPTION_VERSION.length
-        iv = content[ver_length : ver_length + self.IV_LENGTH]
-        data_b64 = content[ver_length + self.IV_LENGTH :]
+        iv = metadata[ver_length : ver_length + self.IV_LENGTH]
+        data_b64 = metadata[ver_length + self.IV_LENGTH :]
 
         data = b64decode(data_b64)
         encrypted = data[: -self.AUTH_TAG_LENGTH]
@@ -100,9 +100,9 @@ class MetadataCipher002(MetadataCipherNewBase):
         cipher = self._create_cipher(iv)
 
         decryptor = cipher.decryptor()
-        content_decrypted = decryptor.update(encrypted) + decryptor.finalize_with_tag(auth_tag)
+        metadata_dec = decryptor.update(encrypted) + decryptor.finalize_with_tag(auth_tag)
 
-        return content_decrypted.decode()
+        return metadata_dec.decode()
 
     def _create_cipher(self, iv: str) -> Cipher:
         key_e = self._key.encode()
@@ -137,24 +137,24 @@ class MetadataCipher003(MetadataCipherNewBase):
     IV_HEX_LENGTH: Final = 24
     AUTH_TAG_LENGTH: Final = 16
 
-    def encrypt(self, content: str) -> str:
+    def encrypt(self, metadata: str) -> str:
         iv_hex = token_hex(self.IV_LENGTH)
         cipher = self._create_cipher(iv_hex)
 
         encryptor = cipher.encryptor()
-        encrypted = encryptor.update(content.encode()) + encryptor.finalize()
+        encrypted = encryptor.update(metadata.encode()) + encryptor.finalize()
         auth_tag = encryptor.tag
 
         data_b64 = b64encode(encrypted + auth_tag).decode()
 
         return f'{self.ENCRYPTION_VERSION}{iv_hex}{data_b64}'
 
-    def decrypt(self, content: str) -> str:
-        self.verify_encryption_version(content, raise_error=True)
+    def decrypt(self, metadata: str) -> str:
+        self.verify_encryption_version(metadata, raise_error=True)
 
         ver_length = self.ENCRYPTION_VERSION.length
-        iv_hex = content[ver_length : ver_length + self.IV_HEX_LENGTH]
-        data_b64 = content[ver_length + self.IV_HEX_LENGTH :]
+        iv_hex = metadata[ver_length : ver_length + self.IV_HEX_LENGTH]
+        data_b64 = metadata[ver_length + self.IV_HEX_LENGTH :]
 
         data = b64decode(data_b64)
         encrypted = data[: -self.AUTH_TAG_LENGTH]
@@ -163,9 +163,9 @@ class MetadataCipher003(MetadataCipherNewBase):
         cipher = self._create_cipher(iv_hex)
 
         decryptor = cipher.decryptor()
-        content_decrypted = decryptor.update(encrypted) + decryptor.finalize_with_tag(auth_tag)
+        metadata_dec = decryptor.update(encrypted) + decryptor.finalize_with_tag(auth_tag)
 
-        return content_decrypted.decode()
+        return metadata_dec.decode()
 
     def _create_cipher(self, iv: str) -> Cipher:
         if len(self._key) != self.KEY_HEX_LENGTH:
