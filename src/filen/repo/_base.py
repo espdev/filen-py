@@ -44,7 +44,7 @@ class _RepoDescriptor[TRepo: Repo | AsyncRepo]:
 
     def __init__(self, repo_type: Type[TRepo]) -> None:
         self._repo_type = repo_type
-        self._repo: dict[int, TRepo] = {}
+        self._repos: dict[int, TRepo] = {}
 
     def __get__(
         self,
@@ -55,16 +55,16 @@ class _RepoDescriptor[TRepo: Repo | AsyncRepo]:
             return self
 
         # The descriptor can be used with several client instances
-        cid = id(client)
+        _id = id(client)
 
-        if cid not in self._repo:
-            self._repo[cid] = self._repo_type(
+        if _id not in self._repos:
+            self._repos[_id] = self._repo_type(
                 config=client.config,
                 api=client._api,  # noqa
                 runner=client._runner,  # noqa
             )
 
-        return self._repo[cid]
+        return self._repos[_id]
 
 
 repo = _RepoDescriptor[Repo | AsyncRepo]
