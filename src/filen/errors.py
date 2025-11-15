@@ -7,6 +7,9 @@ from httpx import HTTPError, HTTPStatusError, TimeoutException
 class FilenError(Exception): ...
 
 
+class APIKeyRequiredError(FilenError): ...
+
+
 class RequestError(FilenError): ...
 
 
@@ -29,40 +32,31 @@ class RequestFailedError(RequestError):
         self.code = code
 
 
-class AuthenticationError(RequestFailedError):
-    pass
+class AuthenticationError(RequestFailedError): ...
 
 
-class ResponseParseError(FilenError):
-    pass
+class ResponseParseError(FilenError): ...
 
 
-class CryptographyError(FilenError):
-    pass
+class CryptographyError(FilenError): ...
 
 
-class NoMasterKeysError(CryptographyError):
-    pass
+class NoMasterKeysError(CryptographyError): ...
 
 
-class MetadataEncryptionVersionError(CryptographyError):
-    pass
+class MetadataEncryptionVersionError(CryptographyError): ...
 
 
-class EncryptError(CryptographyError):
-    pass
+class EncryptError(CryptographyError): ...
 
 
-class DecryptError(CryptographyError):
-    pass
+class DecryptError(CryptographyError): ...
 
 
-class MetadataEncryptError(EncryptError):
-    pass
+class MetadataEncryptError(EncryptError): ...
 
 
-class MetadataDecryptError(DecryptError):
-    pass
+class MetadataDecryptError(DecryptError): ...
 
 
 class FilenErrorCode(StrEnum):

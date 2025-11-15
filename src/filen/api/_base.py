@@ -4,7 +4,7 @@ from enum import StrEnum
 from httpx import AsyncClient, Client
 
 from filen.config import FilenConfig
-from filen.errors import RequestErrorHandler
+from filen.errors import APIKeyRequiredError, RequestErrorHandler
 
 from .models.auth import RequestData, ResponseData
 
@@ -25,10 +25,17 @@ class _APIBase[TClient: Client | AsyncClient]:
     def closed(self) -> bool:
         return self._http_client.is_closed  # noqa
 
-    def _use_api_key(self, headers: dict[str, str] | None = None) -> dict[str, str]:
+    def _ensure_api_key(
+        self,
+        use_api_key: bool,
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, str]:
         headers = headers or {}
-        if api_key := self._config.api_key:
-            headers['Authorization'] = f'Bearer {api_key.get_secret_value()}'
+        if use_api_key:
+            if api_key := self._config.api_key:
+                headers['Authorization'] = f'Bearer {api_key.get_secret_value()}'
+            else:
+                raise APIKeyRequiredError('API key required.')
         return headers
 
 
@@ -40,9 +47,7 @@ class APIBase(_APIBase[Client]):
         response_model: Type[TResponse],
         use_api_key: bool = True,
     ) -> TResponse:
-        headers = {}
-        if use_api_key:
-            headers = self._use_api_key()
+        headers = self._ensure_api_key(use_api_key)
 
         with self._request_error_handler:
             r = self._http_client.post(endpoint, headers=headers, json=data.dump_for_payload())
@@ -54,9 +59,7 @@ class APIBase(_APIBase[Client]):
         response_model: Type[TResponse],
         use_api_key: bool = True,
     ) -> TResponse:
-        headers = {}
-        if use_api_key:
-            headers = self._use_api_key()
+        headers = self._ensure_api_key(use_api_key)
 
         with self._request_error_handler:
             r = self._http_client.get(endpoint, headers=headers)
@@ -72,9 +75,7 @@ class AsyncAPIBase(_APIBase[AsyncClient]):
         *,
         use_api_key: bool = True,
     ) -> TResponse:
-        headers = {}
-        if use_api_key:
-            headers = self._use_api_key()
+        headers = self._ensure_api_key(use_api_key)
 
         with self._request_error_handler:
             r = await self._http_client.post(endpoint, headers=headers, json=data.dump_for_payload())
@@ -86,9 +87,7 @@ class AsyncAPIBase(_APIBase[AsyncClient]):
         response_model: Type[TResponse],
         use_api_key: bool = True,
     ) -> TResponse:
-        headers = {}
-        if use_api_key:
-            headers = self._use_api_key()
+        headers = self._ensure_api_key(use_api_key)
 
         with self._request_error_handler:
             r = await self._http_client.get(endpoint, headers=headers)
