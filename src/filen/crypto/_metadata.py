@@ -32,17 +32,19 @@ class MetadataCipherBase(AbstractCipher):
     def __init__(self, key: str) -> None:
         self._key = key
 
+    @classmethod
     @abstractmethod
-    def verify_encryption_version(self, content: str, raise_error: bool = False) -> bool | NoReturn:
+    def verify_encryption_version(cls, content: str, raise_error: bool = False) -> bool | NoReturn:
         pass
 
 
 class MetadataCipherNewBase(MetadataCipherBase):
     VERSION_LENGTH: Final = 3
 
-    def verify_encryption_version(self, content: str, raise_error: bool = False) -> bool | NoReturn:
-        enc_ver = content[: self.VERSION_LENGTH]
-        is_ok = enc_ver == self.ENCRYPTION_VERSION
+    @classmethod
+    def verify_encryption_version(cls, content: str, raise_error: bool = False) -> bool | NoReturn:
+        enc_ver = content[: cls.VERSION_LENGTH]
+        is_ok = enc_ver == cls.ENCRYPTION_VERSION
 
         if not is_ok and raise_error:
             raise MetadataEncryptionVersionError(f'Unsupported metadata encryption version {enc_ver}.')
@@ -191,25 +193,16 @@ def decrypt_metadata(metadata: str, keys: str | list[str]) -> str:
     if isinstance(keys, str):
         keys = [keys]
 
-    err: Exception | None = None
+    for metadata_chiper_cls in metadata_ciphers.values():
+        if metadata_chiper_cls and metadata_chiper_cls.verify_encryption_version(metadata):
+            last_err: Exception | None = None
 
-    for key in reversed(keys):
-        try:
-            for metadata_cipher_cls in metadata_ciphers.values():
-                if metadata_cipher_cls is None:
-                    continue
-                metadata_cipher = metadata_cipher_cls(key)
-                if metadata_cipher.verify_encryption_version(metadata):
-                    return metadata_cipher.decrypt(metadata)
+            for key in reversed(keys):
+                try:
+                    return metadata_chiper_cls(key).decrypt(metadata)
+                except Exception as err:
+                    last_err = err
 
-            return current_metadata_cipher(key).decrypt(metadata)
-        except Exception as e:
-            err = e
+            raise MetadataDecryptError(f'Metadata decryption failed due to {last_err}') from last_err
 
-    match err:
-        case MetadataEncryptionVersionError():
-            raise err
-        case Exception():
-            raise MetadataDecryptError(f'Metadata decryption failed due to {err}') from err
-        case _:
-            raise MetadataDecryptError('This is impossible.')
+    raise MetadataEncryptionVersionError('Unsupported metadata encryption version.')
