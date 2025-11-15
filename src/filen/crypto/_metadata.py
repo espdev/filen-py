@@ -7,7 +7,7 @@ from secrets import token_bytes, token_hex
 
 from cryptography.hazmat.primitives.ciphers import Cipher
 
-from filen.errors import FilenError, MetadataDecryptError, MetadataEncryptError, MetadataEncryptionVersionError
+from filen.errors import FilenError, MetadataDecryptErrorGroup, MetadataEncryptError, MetadataEncryptionVersionError
 
 from ._base import create_aes_256_gcm_cipher, create_pbkdf2hmac_sha512
 
@@ -216,14 +216,15 @@ def decrypt_metadata(metadata: str, keys: str | list[str]) -> str:
 
     for metadata_chiper_cls in metadata_ciphers.values():
         if metadata_chiper_cls and metadata_chiper_cls.verify_encryption_version(metadata):
-            last_err: Exception | None = None
+            errors: list[Exception] = []
 
             for key in reversed(keys):
                 try:
                     return metadata_chiper_cls(key).decrypt(metadata)
                 except Exception as err:
-                    last_err = err
+                    errors.append(err)
 
-            raise MetadataDecryptError(f'Metadata decryption failed due to: {last_err}') from last_err
+            if errors:
+                raise MetadataDecryptErrorGroup('Metadata decryption failed for all provided keys.', errors)
 
     raise MetadataEncryptionVersionError('Unsupported metadata encryption version.')

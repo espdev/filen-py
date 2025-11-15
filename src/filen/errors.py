@@ -59,6 +59,9 @@ class MetadataEncryptError(EncryptError): ...
 class MetadataDecryptError(DecryptError): ...
 
 
+class MetadataDecryptErrorGroup(MetadataDecryptError, ExceptionGroup): ...
+
+
 class FilenErrorCode(StrEnum):
     email_or_password_wrong = auto()
     enter_2fa = auto()

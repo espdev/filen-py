@@ -14,7 +14,7 @@ from filen.crypto import (
     keypair_der_to_pem,
     metadata_ciphers,
 )
-from filen.errors import MetadataDecryptError, MetadataEncryptionVersionError
+from filen.errors import MetadataDecryptErrorGroup, MetadataEncryptionVersionError
 
 
 def test_derive_password_and_master_key():
@@ -90,10 +90,10 @@ def test_decrypt_metadata_error():
 
     metadata_e = encrypt_metadata(metadata, key1)
 
-    with pytest.raises(MetadataDecryptError):
+    with pytest.raises(MetadataDecryptErrorGroup):
         _ = decrypt_metadata(metadata_e, key2)
 
-    with pytest.raises(MetadataDecryptError):
+    with pytest.raises(MetadataDecryptErrorGroup):
         _ = decrypt_metadata(metadata_e, [key2, key3])
 
 
