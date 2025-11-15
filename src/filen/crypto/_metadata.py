@@ -21,9 +21,6 @@ class MetadataEncryptionVersion(StrEnum):
     v3 = '003'
 
 
-current_metadata_encryption_version = MetadataEncryptionVersion.v2
-
-
 class MetadataCipherBase(ABC):
     """Base metadata cipher class"""
 
@@ -177,12 +174,13 @@ class MetadataCipher003(MetadataCipherNewBase):
 
 
 metadata_ciphers: dict[MetadataEncryptionVersion, Type[MetadataCipherBase] | None] = {
-    MetadataCipher003.ENCRYPTION_VERSION: MetadataCipher003,
     MetadataCipher002.ENCRYPTION_VERSION: MetadataCipher002,
+    MetadataCipher003.ENCRYPTION_VERSION: MetadataCipher003,
     MetadataEncryptionVersion.v1: None,
 }
 
-current_metadata_cipher = MetadataCipher003
+current_metadata_encryption_version = MetadataEncryptionVersion.v2
+current_metadata_cipher = metadata_ciphers[current_metadata_encryption_version]
 
 
 def encrypt_metadata(
