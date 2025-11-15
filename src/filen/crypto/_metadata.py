@@ -2,6 +2,7 @@ from typing import Final, NoReturn, Type
 from abc import ABC, abstractmethod
 from base64 import b64decode, b64encode
 from enum import StrEnum
+from functools import cached_property
 from secrets import token_bytes, token_hex
 
 from cryptography.hazmat.primitives.ciphers import Cipher
@@ -18,12 +19,15 @@ class MetadataEncryptionVersion(StrEnum):
     v2 = '002'
     v3 = '003'
 
+    @cached_property
+    def length(self) -> int:
+        return len(self.value)  # noqa
+
 
 class MetadataCipherBase(ABC):
     """Base metadata cipher class"""
 
     ENCRYPTION_VERSION: MetadataEncryptionVersion
-    VERSION_LENGTH: int
 
     def __init__(self, key: str) -> None:
         self._key = key
@@ -43,11 +47,9 @@ class MetadataCipherBase(ABC):
 
 
 class MetadataCipherNewBase(MetadataCipherBase):
-    VERSION_LENGTH: Final = 3
-
     @classmethod
     def verify_encryption_version(cls, metadata: str, raise_error: bool = False) -> bool | NoReturn:
-        enc_ver = metadata[: cls.VERSION_LENGTH]
+        enc_ver = metadata[: cls.ENCRYPTION_VERSION.length]
         is_ok = enc_ver == cls.ENCRYPTION_VERSION
 
         if not is_ok and raise_error:
@@ -56,7 +58,13 @@ class MetadataCipherNewBase(MetadataCipherBase):
 
 
 class MetadataCipher002(MetadataCipherNewBase):
-    """Metadata cipher for encryption version 002"""
+    """Metadata cipher for encryption version 002
+
+    This version uses an "artisanal" method for generating iv and transforming the key
+    and in fact, it is already deprecated. This is a controversial decision.
+
+    We must support it for decrypting metadata from previously uploaded files.
+    """
 
     ENCRYPTION_VERSION: Final = MetadataEncryptionVersion.v2
 
@@ -81,8 +89,9 @@ class MetadataCipher002(MetadataCipherNewBase):
     def decrypt(self, content: str) -> str:
         self.verify_encryption_version(content, raise_error=True)
 
-        iv = content[self.VERSION_LENGTH : self.VERSION_LENGTH + self.IV_LENGTH]
-        data_b64 = content[self.VERSION_LENGTH + self.IV_LENGTH :]
+        ver_length = self.ENCRYPTION_VERSION.length
+        iv = content[ver_length : ver_length + self.IV_LENGTH]
+        data_b64 = content[ver_length + self.IV_LENGTH :]
 
         data = b64decode(data_b64)
         encrypted = data[: -self.AUTH_TAG_LENGTH]
@@ -143,8 +152,9 @@ class MetadataCipher003(MetadataCipherNewBase):
     def decrypt(self, content: str) -> str:
         self.verify_encryption_version(content, raise_error=True)
 
-        iv_hex = content[self.VERSION_LENGTH : self.VERSION_LENGTH + self.IV_HEX_LENGTH]
-        data_b64 = content[self.VERSION_LENGTH + self.IV_HEX_LENGTH :]
+        ver_length = self.ENCRYPTION_VERSION.length
+        iv_hex = content[ver_length : ver_length + self.IV_HEX_LENGTH]
+        data_b64 = content[ver_length + self.IV_HEX_LENGTH :]
 
         data = b64decode(data_b64)
         encrypted = data[: -self.AUTH_TAG_LENGTH]
