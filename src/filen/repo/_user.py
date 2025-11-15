@@ -18,13 +18,13 @@ class User(Repo):
     def base_folder(self) -> UUID:
         return self._api.user.base_folder().data.uuid
 
-    def key_pair_info(self) -> UserKeyPairInfo:
+    def key_pair(self) -> UserKeyPairInfo:
         """Return user's decrypted public/private key pair"""
 
-        key_pair_data = self._api.user.key_pair_info().data
-        key_pair_data.private_key = decrypt_metadata(key_pair_data.private_key, self._master_keys)
+        key_pair = self._api.user.key_pair_info().data
+        key_pair.private_key = decrypt_metadata(key_pair.private_key, self._master_keys)
 
-        return key_pair_data
+        return key_pair
 
 
 class AsyncUser(AsyncRepo):
@@ -39,12 +39,10 @@ class AsyncUser(AsyncRepo):
     async def base_folder(self) -> UUID:
         return (await self._api.user.base_folder()).data.uuid
 
-    async def key_pair_info(self) -> UserKeyPairInfo:
+    async def key_pair(self) -> UserKeyPairInfo:
         """Return user's decrypted public/private key pair"""
 
-        key_pair_data = (await self._api.user.key_pair_info()).data
-        key_pair_data.private_key = await self._runner.run_sync(
-            decrypt_metadata, key_pair_data.private_key, self._master_keys
-        )
+        key_pair = (await self._api.user.key_pair_info()).data
+        key_pair.private_key = await self._runner.run_sync(decrypt_metadata, key_pair.private_key, self._master_keys)
 
-        return key_pair_data
+        return key_pair
