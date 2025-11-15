@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Optional, Self, Type
+from typing import Self, Type
 from enum import StrEnum
 
 from httpx import AsyncClient, Client
@@ -8,16 +8,13 @@ from filen.errors import APIKeyRequiredError, RequestErrorHandler
 
 from .models.auth import RequestData, ResponseData
 
-if TYPE_CHECKING:
-    from ._facade import FilenAPIBase
-
 
 class APIEndpoint(StrEnum):
     """Base enumeration class for all API endpoint enumerations"""
 
 
 class _APIBase[TClient: Client | AsyncClient]:
-    """Base class for all Filen APIs"""
+    """Base generic class for all sync/async Filen APIs"""
 
     def __init__(self, config: FilenConfig, http_client: TClient) -> None:
         self._config = config
@@ -45,6 +42,8 @@ class _APIBase[TClient: Client | AsyncClient]:
 
 
 class APIBase(_APIBase[Client]):
+    """Base class for all sync APIs"""
+
     def _post[TResponse: ResponseData](
         self,
         endpoint: APIEndpoint,
@@ -72,6 +71,8 @@ class APIBase(_APIBase[Client]):
 
 
 class AsyncAPIBase(_APIBase[AsyncClient]):
+    """Base class for all async APIs"""
+
     async def _post[TResponse: ResponseData](
         self,
         endpoint: APIEndpoint,
@@ -99,11 +100,23 @@ class AsyncAPIBase(_APIBase[AsyncClient]):
             return response_model.from_response(r)
 
 
-class _APIDescriptor[TAPI: APIBase | AsyncAPIBase]:
-    """API descriptor
+class FilenAPIBase[TClient: Client | AsyncClient, TAPI: APIBase | AsyncAPIBase]:
+    """Base generic class for sync/async Filen API facades"""
 
-    Initializes and caches API instances in the Filen API provider class.
-    """
+    def __init__(self, config: FilenConfig, http_client: TClient):
+        self._config = config
+        self._http_client = http_client
+
+    @property
+    def closed(self) -> bool:
+        return self._http_client.is_closed  # noqa
+
+    def _create_api(self, api_type: Type[TAPI]) -> TAPI:
+        return api_type(self._config, self._http_client)
+
+
+class _APIDescriptor[TAPI: APIBase | AsyncAPIBase]:
+    """Generic descriptor class initializes and caches API instances in sync/async Filen API facades"""
 
     def __init__(self, api_type: Type[TAPI]) -> None:
         self._api_type = api_type
@@ -111,8 +124,8 @@ class _APIDescriptor[TAPI: APIBase | AsyncAPIBase]:
 
     def __get__(
         self,
-        filen_api: Optional['FilenAPIBase'],
-        filen_api_type: Type['FilenAPIBase'] | None = None,
+        filen_api: FilenAPIBase | None,
+        filen_api_type: Type[FilenAPIBase] | None = None,
     ) -> TAPI | Self:
         if filen_api is None:
             return self
@@ -120,12 +133,13 @@ class _APIDescriptor[TAPI: APIBase | AsyncAPIBase]:
         _id = id(filen_api)
 
         if _id not in self._apis:
-            self._apis[_id] = self._api_type(
-                config=filen_api.config,
-                http_client=filen_api._http_client,  # noqa
-            )
+            self._apis[_id] = filen_api._create_api(self._api_type)  # noqa
 
         return self._apis[_id]
 
 
-api = _APIDescriptor[APIBase | AsyncAPIBase]
+api = _APIDescriptor[APIBase]
+"""API descriptor should be used in sync Filen API facade"""
+
+async_api = _APIDescriptor[AsyncAPIBase]
+"""API descriptor should be used in async Filen API facade"""
