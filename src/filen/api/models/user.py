@@ -39,3 +39,10 @@ class UserKeyPairInfo(ValidationAliasedModel):
 
 
 class UserKeyPairInfoResponseData(ResponseData[UserKeyPairInfo]): ...
+
+
+class UserBaseFolder(ValidationAliasedModel):
+    uuid: UUID
+
+
+class UserBaseFolderResponseData(ResponseData[UserBaseFolder]): ...

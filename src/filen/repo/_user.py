@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from filen.api.models.user import UserInfo, UserKeyPairInfo, UserSettings
 from filen.crypto import decrypt_metadata
 
@@ -12,6 +14,9 @@ class User(Repo):
 
     def settings(self) -> UserSettings:
         return self._api.user.settings().data
+
+    def base_folder(self) -> UUID:
+        return self._api.user.base_folder().data.uuid
 
     def key_pair_info(self) -> UserKeyPairInfo:
         """Return user's decrypted public/private key pair"""
@@ -30,6 +35,9 @@ class AsyncUser(AsyncRepo):
 
     async def settings(self) -> UserSettings:
         return (await self._api.user.settings()).data
+
+    async def base_folder(self) -> UUID:
+        return (await self._api.user.base_folder()).data.uuid
 
     async def key_pair_info(self) -> UserKeyPairInfo:
         """Return user's decrypted public/private key pair"""
