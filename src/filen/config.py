@@ -4,6 +4,8 @@ from enum import IntEnum
 from pydantic import HttpUrl, SecretStr, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
+from filen.errors import NoMasterKeysError
+
 FILEN_API_URL: Final = 'https://gateway.filen.io/v3'
 
 
@@ -32,6 +34,12 @@ class FilenConfig(BaseSettings):
         env_file_encoding='utf-8',
     )
 
+    @property
+    def latest_master_key(self) -> SecretStr:
+        if not self.master_keys:
+            raise NoMasterKeysError('There are no master keys in the config.')
+        return self.master_keys[-1]
+
     @field_validator('master_keys', mode='before')
     @classmethod
     def parse_master_keys(cls, v):
@@ -42,9 +50,20 @@ class FilenConfig(BaseSettings):
     def is_valid_for_auth(self) -> bool:
         """Return True if the config is valid for authorized access to API"""
 
-        return self.auth_version is not None and self.api_key is not None
+        # fmt: off
+        return (
+            self.auth_version is not None
+            and self.api_key is not None
+        )
+        # fmt: on
 
     def is_valid_keys(self) -> bool:
         """Return True if the config contains valid encryption keys"""
 
-        return len(self.master_keys) > 0 and self.public_key is not None and self.private_key is not None
+        # fmt: off
+        return (
+            len(self.master_keys) > 0
+            and self.public_key is not None
+            and self.private_key is not None
+        )
+        # fmt: on

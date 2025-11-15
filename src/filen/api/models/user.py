@@ -3,7 +3,7 @@ from uuid import UUID
 
 from pydantic import EmailStr, Field
 
-from .base import ResponseData, ValidationAliasedModel
+from .base import RequestData, ResponseData, ValidationAliasedModel
 
 
 class UserInfo(ValidationAliasedModel):
@@ -31,6 +31,17 @@ class UserSettings(ValidationAliasedModel):
 
 
 class UserSettingsResponseData(ResponseData[UserSettings]): ...
+
+
+class UserMasterKeysRequestData(RequestData):
+    master_keys: str
+
+
+class UserMasterKeys(ValidationAliasedModel):
+    keys: str
+
+
+class UserMasterKeysResponseData(ResponseData[UserMasterKeys]): ...
 
 
 class UserKeyPairInfo(ValidationAliasedModel):

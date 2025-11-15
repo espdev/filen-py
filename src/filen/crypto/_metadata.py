@@ -23,6 +23,9 @@ class MetadataEncryptionVersion(StrEnum):
     v3 = '003'
 
 
+current_metadata_encryption_version = MetadataEncryptionVersion.v2
+
+
 class MetadataCipherBase(AbstractCipher):
     """Base metadata cipher class"""
 
@@ -178,13 +181,22 @@ metadata_ciphers: dict[MetadataEncryptionVersion, Type[MetadataCipherBase] | Non
 current_metadata_cipher = MetadataCipher003
 
 
-def encrypt_metadata(metadata: str, key: str) -> str:
-    """Encrypt metadata by the current metadata cipher"""
+def encrypt_metadata(
+    metadata: str,
+    key: str,
+    encryption_version: MetadataEncryptionVersion = current_metadata_encryption_version,
+) -> str:
+    """Encrypt metadata by the given encryption version (current version by default)"""
+
+    metadata_cipher_cls = metadata_ciphers.get(encryption_version)
 
     try:
-        return current_metadata_cipher(key).encrypt(metadata)
+        if not metadata_cipher_cls:
+            raise NotImplementedError(f'metadata cipher not implemented for encryption version {encryption_version}.')
+
+        return metadata_cipher_cls(key).encrypt(metadata)
     except Exception as err:
-        raise MetadataEncryptError(f'Metadata encryption failed due to {err}') from err
+        raise MetadataEncryptError(f'Metadata encryption failed due to: {err}') from err
 
 
 def decrypt_metadata(metadata: str, keys: str | list[str]) -> str:
@@ -203,6 +215,6 @@ def decrypt_metadata(metadata: str, keys: str | list[str]) -> str:
                 except Exception as err:
                     last_err = err
 
-            raise MetadataDecryptError(f'Metadata decryption failed due to {last_err}') from last_err
+            raise MetadataDecryptError(f'Metadata decryption failed due to: {last_err}') from last_err
 
     raise MetadataEncryptionVersionError('Unsupported metadata encryption version.')

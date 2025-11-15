@@ -3,8 +3,10 @@ import pytest
 from filen.crypto import (
     MetadataEncryptionVersion,
     current_metadata_cipher,
+    decrypt_master_keys,
     decrypt_metadata,
     derive_password_and_master_key,
+    encrypt_master_keys,
     encrypt_metadata,
     metadata_ciphers,
 )
@@ -102,3 +104,13 @@ def test_decrypt_metadata_encryption_version_error():
 
     with pytest.raises(MetadataEncryptionVersionError):
         _ = decrypt_metadata(metadata_e, [key1, key2])
+
+
+def test_encrypt_decrypt_master_keys():
+    keys = [
+        'c438c484766b8ff500b0b918fd44f1f643929f7656a648f6b3dd76aea56c121b',
+        'd899ab9d9032c49ff39428964607db67225e338612059776447715d37586eba3',
+        '1828d1cba88e28377a3d9c8f64e3aad36a0287fb5f9ad3485f9922b071827aa0',
+    ]
+
+    assert decrypt_master_keys(encrypt_master_keys(keys), keys[-1]) == keys
