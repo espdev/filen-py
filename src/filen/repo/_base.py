@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING, Optional, Self, Type
 
 from filen.api import AsyncFilenAPI, FilenAPI
 from filen.config import FilenConfig
+from filen.errors import NoMasterKeysError
 from filen.runners import AsyncRunnerBase, RunnerBase
 
 if TYPE_CHECKING:
@@ -15,6 +16,18 @@ class RepoBase[TFilenAPI: FilenAPI | AsyncFilenAPI, TRunner: RunnerBase | AsyncR
         self._config = config
         self._api = api
         self._runner = runner
+
+    @property
+    def _current_master_key(self) -> str:
+        if not self._config.master_keys:
+            raise NoMasterKeysError('There are no master keys.')
+        return self._config.master_keys[-1].get_secret_value()
+
+    @property
+    def _master_keys(self) -> list[str]:
+        if not self._config.master_keys:
+            raise NoMasterKeysError('There are no master keys.')
+        return [key.get_secret_value() for key in self._config.master_keys]
 
 
 class Repo(RepoBase[FilenAPI, RunnerBase]): ...

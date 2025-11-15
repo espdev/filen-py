@@ -6,7 +6,7 @@ from pydantic import EmailStr, Field
 from .base import ResponseData, ValidationAliasedModel
 
 
-class UserInfoData(ValidationAliasedModel):
+class UserInfo(ValidationAliasedModel):
     id: int
     email: EmailStr
     max_storage: int
@@ -16,4 +16,26 @@ class UserInfoData(ValidationAliasedModel):
     base_folder_uuid: Annotated[UUID, Field(validation_alias='baseFolderUUID')]
 
 
-class UserInfoResponseData(ResponseData[UserInfoData]): ...
+class UserInfoResponseData(ResponseData[UserInfo]): ...
+
+
+class UserSettings(ValidationAliasedModel):
+    email: EmailStr
+    two_factor_key: str | None
+    two_factor_enabled: bool
+    versioned_files: int
+    versioned_storage: int
+    unfinished_files: int
+    unfinished_storage: int
+    storage_used: int
+
+
+class UserSettingsResponseData(ResponseData[UserSettings]): ...
+
+
+class UserKeyPairInfo(ValidationAliasedModel):
+    public_key: str
+    private_key: str
+
+
+class UserKeyPairInfoResponseData(ResponseData[UserKeyPairInfo]): ...

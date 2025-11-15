@@ -41,6 +41,10 @@ class CryptographyError(FilenError):
     pass
 
 
+class NoMasterKeysError(CryptographyError):
+    pass
+
+
 class MetadataEncryptionVersionError(CryptographyError):
     pass
 

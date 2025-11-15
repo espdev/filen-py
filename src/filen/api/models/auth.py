@@ -13,14 +13,14 @@ class AuthInfoRequestData(RequestData):
     email: EmailStr
 
 
-class AuthInfoData(ValidationAliasedModel):
+class AuthInfo(ValidationAliasedModel):
     email: EmailStr
     salt: str
     id: int
     auth_version: AuthVersion
 
 
-class AuthInfoResponseData(ResponseData[AuthInfoData]): ...
+class AuthInfoResponseData(ResponseData[AuthInfo]): ...
 
 
 TwoFactorCodeStr = Annotated[str, StringConstraints(pattern=r'^[0-9]{6}$')]

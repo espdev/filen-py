@@ -10,14 +10,7 @@ from .models.auth import RequestData, ResponseData
 
 
 class APIEndpoint(StrEnum):
-    """All API endpoints"""
-
-    # Auth
-    auth_info = '/auth/info'
-    login = '/login'
-
-    # User
-    user_info = '/user/info'
+    """Base enumeration class for all API endpoint enumerations"""
 
 
 class _APIBase[TClient: Client | AsyncClient]:
