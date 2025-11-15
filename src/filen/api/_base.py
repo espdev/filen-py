@@ -28,6 +28,7 @@ class _APIBase[TClient: Client | AsyncClient]:
     def _ensure_api_key(
         self,
         use_api_key: bool,
+        endpoint: APIEndpoint,
         headers: dict[str, str] | None = None,
     ) -> dict[str, str]:
         headers = headers or {}
@@ -35,7 +36,8 @@ class _APIBase[TClient: Client | AsyncClient]:
             if api_key := self._config.api_key:
                 headers['Authorization'] = f'Bearer {api_key.get_secret_value()}'
             else:
-                raise APIKeyRequiredError('API key required.')
+                url = str(self._http_client.base_url).rstrip('/') + endpoint
+                raise APIKeyRequiredError(f'API key required for {url}')
         return headers
 
 
@@ -47,7 +49,7 @@ class APIBase(_APIBase[Client]):
         response_model: Type[TResponse],
         use_api_key: bool = True,
     ) -> TResponse:
-        headers = self._ensure_api_key(use_api_key)
+        headers = self._ensure_api_key(use_api_key, endpoint)
 
         with self._request_error_handler:
             r = self._http_client.post(endpoint, headers=headers, json=data.dump_for_payload())
@@ -59,7 +61,7 @@ class APIBase(_APIBase[Client]):
         response_model: Type[TResponse],
         use_api_key: bool = True,
     ) -> TResponse:
-        headers = self._ensure_api_key(use_api_key)
+        headers = self._ensure_api_key(use_api_key, endpoint)
 
         with self._request_error_handler:
             r = self._http_client.get(endpoint, headers=headers)
@@ -75,7 +77,7 @@ class AsyncAPIBase(_APIBase[AsyncClient]):
         *,
         use_api_key: bool = True,
     ) -> TResponse:
-        headers = self._ensure_api_key(use_api_key)
+        headers = self._ensure_api_key(use_api_key, endpoint)
 
         with self._request_error_handler:
             r = await self._http_client.post(endpoint, headers=headers, json=data.dump_for_payload())
@@ -87,7 +89,7 @@ class AsyncAPIBase(_APIBase[AsyncClient]):
         response_model: Type[TResponse],
         use_api_key: bool = True,
     ) -> TResponse:
-        headers = self._ensure_api_key(use_api_key)
+        headers = self._ensure_api_key(use_api_key, endpoint)
 
         with self._request_error_handler:
             r = await self._http_client.get(endpoint, headers=headers)
