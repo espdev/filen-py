@@ -9,27 +9,42 @@ from filen.errors import RequestFailedError, ResponseParseError
 
 
 class SerializationAliasedModel(BaseModel):
+    """Model class with serialization to camelCase field names by default
+
+    The model should be used for Filen API request data.
+    """
+
     model_config = ConfigDict(alias_generator=AliasGenerator(serialization_alias=to_camel))
 
 
 class ValidationAliasedModel(BaseModel):
+    """Model class with validation from camelCase field names by default
+
+    The model should be used for Filen API response data.
+    """
+
     model_config = ConfigDict(alias_generator=AliasGenerator(validation_alias=to_camel))
 
 
 class RequestData(SerializationAliasedModel):
+    """Base model class for all Filen API request data models"""
+
     def dump_for_payload(self) -> dict[str, Any]:
         return self.model_dump(by_alias=True, mode='json')
 
 
-class ResponseData[TData: BaseModel](BaseModel):
+class ResponseModel(BaseModel):
+    """Model class for Filen API responses without additional data"""
+
     status: bool
     message: str
     code: str
     elapsed: timedelta
-    data: TData | list[TData] | None = None
 
     @classmethod
     def from_response(cls, response: Response) -> Self:
+        """Create the model from HTTP client response instance"""
+
         response.raise_for_status()
 
         data_raw = response.json()
@@ -48,3 +63,9 @@ class ResponseData[TData: BaseModel](BaseModel):
             )
 
         return response_data
+
+
+class ResponseData[TData: ValidationAliasedModel](ResponseModel):
+    """Genedic model class for Filen API responses with additional data"""
+
+    data: TData | list[TData] | None = None
