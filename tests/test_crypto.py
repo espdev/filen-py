@@ -1,3 +1,5 @@
+from secrets import token_bytes
+
 from cryptography.hazmat.primitives import serialization
 import pytest
 
@@ -5,16 +7,23 @@ from filen.crypto import (
     MetadataEncryptionVersion,
     create_der_keypair,
     current_metadata_cipher,
+    decrypt_content,
     decrypt_master_keys,
     decrypt_metadata,
     derive_password_and_master_key,
+    encrypt_content,
     encrypt_master_keys,
     encrypt_metadata,
     generate_private_key,
     keypair_der_to_pem,
     metadata_ciphers,
 )
-from filen.errors import MetadataDecryptErrorGroup, MetadataEncryptionVersionError
+from filen.errors import (
+    ContentDecryptError,
+    ContentEncryptError,
+    MetadataDecryptErrorGroup,
+    MetadataEncryptionVersionError,
+)
 
 
 def test_derive_password_and_master_key():
@@ -28,6 +37,16 @@ def test_derive_password_and_master_key():
         '0472fd5aefdf6f8fbbf03e75eacf8e2dedd680089b858fcf0a00b635f'
     )
     assert res.master_key == 'c438c484766b8ff500b0b918fd44f1f643929f7656a648f6b3dd76aea56c121b'
+
+
+def test_encrypt_decrypt_master_keys():
+    keys = [
+        'c438c484766b8ff500b0b918fd44f1f643929f7656a648f6b3dd76aea56c121b',
+        'd899ab9d9032c49ff39428964607db67225e338612059776447715d37586eba3',
+        '1828d1cba88e28377a3d9c8f64e3aad36a0287fb5f9ad3485f9922b071827aa0',
+    ]
+
+    assert decrypt_master_keys(encrypt_master_keys(keys), keys[-1]) == keys
 
 
 def test_encrypt_decrypt_metadata_current():
@@ -114,14 +133,33 @@ def test_decrypt_metadata_encryption_version_error():
         _ = decrypt_metadata(metadata_e, [key1, key2])
 
 
-def test_encrypt_decrypt_master_keys():
-    keys = [
-        'c438c484766b8ff500b0b918fd44f1f643929f7656a648f6b3dd76aea56c121b',
-        'd899ab9d9032c49ff39428964607db67225e338612059776447715d37586eba3',
-        '1828d1cba88e28377a3d9c8f64e3aad36a0287fb5f9ad3485f9922b071827aa0',
-    ]
+def test_encrypt_decrypt_content():
+    data = token_bytes(1024)
+    key = '485cfd4b2c99fb2cb7bd2c288158811b'
 
-    assert decrypt_master_keys(encrypt_master_keys(keys), keys[-1]) == keys
+    assert decrypt_content(encrypt_content(data, key), key) == data
+
+
+def test_encrypt_content_error():
+    data = token_bytes(1024)
+    key = 'd899ab9d9032c49ff39428964607db67225e338612059776447715d37586eba3'
+
+    with pytest.raises(ContentEncryptError):
+        _ = encrypt_content(data, key)
+
+
+def test_decrypt_content_error():
+    data = token_bytes(1024)
+    key = 'd899ab9d9032c49ff39428964607db67225e338612059776447715d37586eba3'
+
+    with pytest.raises(ContentDecryptError):
+        _ = decrypt_content(data, key)
+
+    data = token_bytes(10)
+    key = '485cfd4b2c99fb2cb7bd2c288158811b'
+
+    with pytest.raises(ContentDecryptError):
+        _ = decrypt_content(data, key)
 
 
 def test_keypair_der_to_pem():

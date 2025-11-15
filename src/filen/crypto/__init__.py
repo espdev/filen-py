@@ -1,3 +1,4 @@
+from ._content import decrypt_content, encrypt_content
 from ._keypair import KeyPair, create_der_keypair, generate_private_key, keypair_der_to_pem
 from ._masterkey import (
     DerivedPasswordAndMasterKey,
@@ -28,6 +29,8 @@ __all__ = [
     'metadata_ciphers',
     'encrypt_metadata',
     'decrypt_metadata',
+    'encrypt_content',
+    'decrypt_content',
     'generate_private_key',
     'create_der_keypair',
     'keypair_der_to_pem',
