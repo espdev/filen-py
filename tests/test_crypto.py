@@ -1,13 +1,17 @@
+from cryptography.hazmat.primitives import serialization
 import pytest
 
 from filen.crypto import (
     MetadataEncryptionVersion,
+    create_der_keypair,
     current_metadata_cipher,
     decrypt_master_keys,
     decrypt_metadata,
     derive_password_and_master_key,
     encrypt_master_keys,
     encrypt_metadata,
+    generate_private_key,
+    keypair_der_to_pem,
     metadata_ciphers,
 )
 from filen.errors import MetadataDecryptError, MetadataEncryptionVersionError
@@ -114,3 +118,21 @@ def test_encrypt_decrypt_master_keys():
     ]
 
     assert decrypt_master_keys(encrypt_master_keys(keys), keys[-1]) == keys
+
+
+def test_keypair_der_to_pem():
+    private_key = generate_private_key()
+
+    keypair_der = create_der_keypair(private_key)
+    keypair_pem = keypair_der_to_pem(*keypair_der)
+
+    private_key_from_pem = serialization.load_pem_private_key(
+        data=keypair_pem.private_key.encode(),
+        password=None,
+    )
+    public_key_from_pem = serialization.load_pem_public_key(
+        data=keypair_pem.public_key.encode(),
+    )
+
+    assert private_key.private_numbers() == private_key_from_pem.private_numbers()
+    assert private_key.public_key().public_numbers() == public_key_from_pem.public_numbers()

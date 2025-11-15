@@ -5,14 +5,12 @@ from enum import StrEnum
 from secrets import token_bytes, token_hex
 
 from cryptography.hazmat.primitives.ciphers import Cipher
-from cryptography.hazmat.primitives.ciphers.algorithms import AES
-from cryptography.hazmat.primitives.ciphers.modes import GCM
 from cryptography.hazmat.primitives.hashes import SHA512
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 from filen.errors import FilenError, MetadataDecryptError, MetadataEncryptError, MetadataEncryptionVersionError
 
-from ._base import MASTER_KEY_LENGTH, AbstractCipher, backend
+from ._base import MASTER_KEY_LENGTH, AbstractCipher, backend, create_aes_256_gcm_cipher
 
 
 class MetadataEncryptionVersion(StrEnum):
@@ -105,10 +103,9 @@ class MetadataCipher002(MetadataCipherNewBase):
             backend=backend,
         ).derive(key_e)
 
-        return Cipher(
-            algorithm=AES(key),
-            mode=GCM(iv.encode()),
-            backend=backend,
+        return create_aes_256_gcm_cipher(
+            key=key,
+            iv=iv.encode(),
         )
 
     def _generate_iv(self) -> str:
@@ -165,10 +162,9 @@ class MetadataCipher003(MetadataCipherNewBase):
                 f'Must be {MASTER_KEY_LENGTH} in hex.'
             )
 
-        return Cipher(
-            algorithm=AES(bytes.fromhex(self._key)),
-            mode=GCM(bytes.fromhex(iv)),
-            backend=backend,
+        return create_aes_256_gcm_cipher(
+            key=bytes.fromhex(self._key),
+            iv=bytes.fromhex(iv),
         )
 
 
