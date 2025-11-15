@@ -1,8 +1,8 @@
 from contextlib import contextmanager
 
-from filen.api.models.auth import NO_2FA_CODE_PLACEHOLDER, AuthInfoRequestData, LoginRequestData
-from filen.config import AuthVersion, FilenConfig
-from filen.crypto import decrypt_metadata, derive_password_and_master_key
+from filen._context import Context
+from filen.api.models.auth import NO_2FA_CODE_PLACEHOLDER, AuthInfoRequestData, AuthVersion, LoginRequestData
+from filen.crypto import decrypt_master_keys, decrypt_metadata, derive_password_and_master_key
 from filen.errors import FilenError, RequestFailedError
 
 from ._base import AsyncRepo, Repo
@@ -11,7 +11,7 @@ from ._base import AsyncRepo, Repo
 class AuthMixIn:
     supported_auth_versions = {AuthVersion.v2}
 
-    _config: FilenConfig
+    _context: Context
 
     def _check_auth_version(self, auth_version: int):
         if auth_version not in self.supported_auth_versions:
@@ -19,7 +19,7 @@ class AuthMixIn:
 
     @contextmanager
     def _check_login(self):
-        res = {'ok': self._config.is_valid_for_auth() and self._config.auth_version in self.supported_auth_versions}
+        res = {'ok': self._context.is_valid_for_auth() and self._context.auth_version in self.supported_auth_versions}
         try:
             yield res
         except RequestFailedError as err:
@@ -48,17 +48,17 @@ class Auth(AuthMixIn, Repo):
         )
 
         with self._runner.task_group() as gr:
-            gr.add_task('master_keys', decrypt_metadata, login_info.data.master_keys, derived_info.master_key)
+            gr.add_task('master_keys', decrypt_master_keys, login_info.data.master_keys, derived_info.master_key)
             gr.add_task('private_key', decrypt_metadata, login_info.data.private_key, derived_info.master_key)
 
         master_keys = gr.results['master_keys']
         private_key = gr.results['private_key']
 
-        self._config.auth_version = auth_info.data.auth_version
-        self._config.api_key = login_info.data.api_key
-        self._config.master_keys = master_keys
-        self._config.public_key = login_info.data.public_key
-        self._config.private_key = private_key
+        self._context.auth_version = auth_info.data.auth_version
+        self._context.api_key = login_info.data.api_key
+        self._context.master_keys = master_keys
+        self._context.public_key = login_info.data.public_key
+        self._context.private_key = private_key
 
     def logged_in(self) -> bool:
         with self._check_login() as res:
@@ -86,17 +86,17 @@ class AsyncAuth(AuthMixIn, AsyncRepo):
         )
 
         async with self._runner.task_group() as gr:
-            gr.add_task('master_keys', decrypt_metadata, login_info.data.master_keys, derived_info.master_key)
+            gr.add_task('master_keys', decrypt_master_keys, login_info.data.master_keys, derived_info.master_key)
             gr.add_task('private_key', decrypt_metadata, login_info.data.private_key, derived_info.master_key)
 
         master_keys = gr.results['master_keys']
         private_key = gr.results['private_key']
 
-        self._config.auth_version = auth_info.data.auth_version
-        self._config.api_key = login_info.data.api_key
-        self._config.master_keys = master_keys
-        self._config.public_key = login_info.data.public_key
-        self._config.private_key = private_key
+        self._context.auth_version = auth_info.data.auth_version
+        self._context.api_key = login_info.data.api_key
+        self._context.master_keys = master_keys
+        self._context.public_key = login_info.data.public_key
+        self._context.private_key = private_key
 
     async def logged_in(self) -> bool:
         with self._check_login() as res:

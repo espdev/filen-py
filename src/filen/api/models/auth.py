@@ -1,12 +1,17 @@
 from typing import Annotated, Final, Literal
+from enum import IntEnum
 
 from pydantic import EmailStr, StringConstraints
-
-from filen.config import AuthVersion
 
 from .base import RequestData, ResponseData, ValidationAliasedModel
 
 NO_2FA_CODE_PLACEHOLDER: Final = 'XXXXXX'
+
+
+class AuthVersion(IntEnum):
+    v1 = 1
+    v2 = 2
+    v3 = 3
 
 
 class AuthInfoRequestData(RequestData):

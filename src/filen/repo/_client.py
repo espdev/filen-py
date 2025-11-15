@@ -13,10 +13,10 @@ class FilenClientRepo(FilenClientRepoBase[Client, FilenAPI, Repo, RunnerBase]):
         return ThreadRunner()
 
     def _create_client(self) -> Client:
-        return Client(base_url=str(self.config.api_url))
+        return Client(base_url=self._context.api_url)
 
     def _create_api(self) -> FilenAPI:
-        return FilenAPI(self._config, self._http_client)
+        return FilenAPI(self._context, self._http_client)
 
     def __enter__(self) -> Self:
         if self._owns_http_client:
@@ -36,10 +36,10 @@ class AsyncFilenClientRepo(FilenClientRepoBase[AsyncClient, AsyncFilenAPI, Async
         return AsyncThreadRunner()
 
     def _create_client(self) -> AsyncClient:
-        return AsyncClient(base_url=str(self.config.api_url))
+        return AsyncClient(base_url=self._context.api_url)
 
     def _create_api(self) -> AsyncFilenAPI:
-        return AsyncFilenAPI(self._config, self._http_client)
+        return AsyncFilenAPI(self._context, self._http_client)
 
     async def __aenter__(self) -> Self:
         if self._owns_http_client:

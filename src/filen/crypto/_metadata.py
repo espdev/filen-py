@@ -7,7 +7,13 @@ from secrets import token_bytes, token_hex
 
 from cryptography.hazmat.primitives.ciphers import Cipher
 
-from filen.errors import FilenError, MetadataDecryptErrorGroup, MetadataEncryptError, MetadataEncryptionVersionError
+from filen.errors import (
+    FilenError,
+    MetadataDecryptError,
+    MetadataDecryptErrorGroup,
+    MetadataEncryptError,
+    MetadataEncryptionVersionError,
+)
 
 from ._base import create_aes_256_gcm_cipher, create_pbkdf2hmac_sha512
 
@@ -213,6 +219,9 @@ def decrypt_metadata(metadata: str, keys: str | list[str]) -> str:
 
     if isinstance(keys, str):
         keys = [keys]
+
+    if not keys:
+        raise MetadataDecryptError('There are no master keys.')
 
     for metadata_chiper_cls in metadata_ciphers.values():
         if metadata_chiper_cls and metadata_chiper_cls.verify_encryption_version(metadata):

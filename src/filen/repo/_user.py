@@ -21,7 +21,7 @@ class User(Repo):
     def master_keys(self) -> list[str]:
         """Retrieve user's master keys"""
 
-        master_key = self._config.latest_master_key.get_secret_value()
+        master_key = self._latest_master_key
         master_key_enc = encrypt_metadata(master_key, master_key)
         master_keys_enc = self._api.user.master_keys(UserMasterKeysRequestData(master_keys=master_key_enc)).data.keys
         master_keys = decrypt_master_keys(master_keys_enc, master_key)
@@ -52,7 +52,7 @@ class AsyncUser(AsyncRepo):
     async def master_keys(self) -> list[str]:
         """Retrieve user's master keys"""
 
-        master_key = self._config.latest_master_key.get_secret_value()
+        master_key = self._latest_master_key
         master_key_enc = await self._runner.run_sync(encrypt_metadata, master_key, master_key)
         master_keys_enc = (
             await self._api.user.master_keys(UserMasterKeysRequestData(master_keys=master_key_enc))

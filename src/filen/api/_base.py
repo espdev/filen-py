@@ -3,7 +3,7 @@ from enum import StrEnum
 
 from httpx import AsyncClient, Client
 
-from filen.config import FilenConfig
+from filen._context import Context
 from filen.errors import APIKeyRequiredError, RequestErrorHandler
 
 from .models.auth import RequestData, ResponseData
@@ -16,8 +16,8 @@ class APIEndpoint(StrEnum):
 class _APIBase[TClient: Client | AsyncClient]:
     """Base generic class for all sync/async Filen APIs"""
 
-    def __init__(self, config: FilenConfig, http_client: TClient) -> None:
-        self._config = config
+    def __init__(self, context: Context, http_client: TClient) -> None:
+        self._context = context
         self._http_client = http_client
         self._request_error_handler = RequestErrorHandler()
 
@@ -33,8 +33,8 @@ class _APIBase[TClient: Client | AsyncClient]:
     ) -> dict[str, str]:
         headers = headers or {}
         if use_api_key:
-            if api_key := self._config.api_key:
-                headers['Authorization'] = f'Bearer {api_key.get_secret_value()}'
+            if api_key := self._context.api_key:
+                headers['Authorization'] = f'Bearer {api_key}'
             else:
                 url = str(self._http_client.base_url).rstrip('/') + endpoint
                 raise APIKeyRequiredError(f'API key required for {url}')
@@ -103,8 +103,8 @@ class AsyncAPIBase(_APIBase[AsyncClient]):
 class FilenAPIBase[TClient: Client | AsyncClient, TAPI: APIBase | AsyncAPIBase]:
     """Base generic class for sync/async Filen API facades"""
 
-    def __init__(self, config: FilenConfig, http_client: TClient):
-        self._config = config
+    def __init__(self, context: Context, http_client: TClient):
+        self._context = context
         self._http_client = http_client
 
     @property
@@ -112,7 +112,7 @@ class FilenAPIBase[TClient: Client | AsyncClient, TAPI: APIBase | AsyncAPIBase]:
         return self._http_client.is_closed  # noqa
 
     def _create_api(self, api_type: Type[TAPI]) -> TAPI:
-        return api_type(self._config, self._http_client)
+        return api_type(context=self._context, http_client=self._http_client)
 
 
 class _APIDescriptor[TAPI: APIBase | AsyncAPIBase]:
