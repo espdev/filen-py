@@ -8,7 +8,7 @@ from ._user import AsyncUserAPI, UserAPI
 
 
 class FilenAPIBase[TClient: Client | AsyncClient]:
-    """Base class for Filen API providers"""
+    """Base class for Filen API providers (facades)"""
 
     def __init__(self, config: FilenConfig, http_client: TClient):
         self.config = config

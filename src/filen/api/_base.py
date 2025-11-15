@@ -9,7 +9,7 @@ from filen.errors import APIKeyRequiredError, RequestErrorHandler
 from .models.auth import RequestData, ResponseData
 
 if TYPE_CHECKING:
-    from ._api import FilenAPIBase
+    from ._facade import FilenAPIBase
 
 
 class APIEndpoint(StrEnum):
