@@ -1,5 +1,4 @@
 from typing import Self
-from abc import abstractmethod
 
 from httpx import AsyncClient, Client
 
@@ -18,10 +17,6 @@ class FilenClientRepo(FilenClientRepoBase[Client, FilenAPI, Repo, RunnerBase]):
 
     def _create_api(self) -> FilenAPI:
         return FilenAPI(self._context, self._http_client)
-
-    @abstractmethod
-    def update_context(self) -> bool:
-        pass
 
     def __enter__(self) -> Self:
         if self._owns_http_client:
@@ -45,10 +40,6 @@ class AsyncFilenClientRepo(FilenClientRepoBase[AsyncClient, AsyncFilenAPI, Async
 
     def _create_api(self) -> AsyncFilenAPI:
         return AsyncFilenAPI(self._context, self._http_client)
-
-    @abstractmethod
-    async def update_context(self) -> bool:
-        pass
 
     async def __aenter__(self) -> Self:
         if self._owns_http_client:
