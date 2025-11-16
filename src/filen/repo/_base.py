@@ -29,6 +29,10 @@ class RepoGenericBase[TFilenAPI: FilenAPI | AsyncFilenAPI, TRunner: RunnerBase |
         self._api = api
         self._runner = runner
 
+    @property
+    def is_closed(self) -> bool:
+        return self._api.is_closed  # noqa
+
 
 class RepoBase(RepoGenericBase[FilenAPI, RunnerBase]):
     """Repository base class for all sync repository classes"""
@@ -180,12 +184,12 @@ class FilenClientGenericBase[
         self._api = self._create_api()
 
     @property
-    def timeout(self) -> Timeout:
-        return self._http_client.timeout  # noqa
+    def is_closed(self) -> bool:
+        return self._http_client.is_closed  # noqa
 
     @property
-    def closed(self) -> bool:
-        return self._http_client.is_closed  # noqa
+    def timeout(self) -> Timeout:
+        return self._http_client.timeout  # noqa
 
     @abstractmethod
     def _create_default_runner(self) -> TRunner:

@@ -22,7 +22,7 @@ class APIGenericBase[TClient: Client | AsyncClient]:
         self._request_error_handler = RequestErrorHandler()
 
     @property
-    def closed(self) -> bool:
+    def is_closed(self) -> bool:
         return self._http_client.is_closed  # noqa
 
     def _ensure_api_key(
@@ -108,7 +108,7 @@ class FilenAPIGenericBase[TClient: Client | AsyncClient, TAPI: APIBase | AsyncAP
         self._http_client = http_client
 
     @property
-    def closed(self) -> bool:
+    def is_closed(self) -> bool:
         return self._http_client.is_closed  # noqa
 
     def _create_api(self, api_type: Type[TAPI]) -> TAPI:
