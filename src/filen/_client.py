@@ -14,6 +14,13 @@ class FilenClient(FilenClientBase):
     def logged_in(self) -> bool:
         return self._auth.logged_in()
 
+    def ensure_context(self):
+        """Ensure the client context info or raise an exception"""
+
+        self.user.master_keys()
+        self.user.key_pair()
+        self.user.base_folder()
+
 
 class AsyncFilenClient(AsyncFilenClientBase):
     """Filen async client"""
@@ -26,3 +33,10 @@ class AsyncFilenClient(AsyncFilenClientBase):
 
     async def logged_in(self) -> bool:
         return await self._auth.logged_in()
+
+    async def ensure_context(self):
+        """Ensure the client context info or raise an exception"""
+
+        await self.user.master_keys()
+        await self.user.key_pair()
+        await self.user.base_folder()

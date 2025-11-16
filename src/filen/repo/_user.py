@@ -1,7 +1,6 @@
 from uuid import UUID
 
-from filen.api.models.user import UserInfo, UserKeyPairInfo, UserMasterKeysRequestData, UserSettings
-from filen.crypto import decrypt_master_keys, decrypt_metadata, encrypt_metadata
+from filen.api.models.user import UserInfo, UserKeyPair, UserSettings
 
 from ._base import AsyncRepoBase, RepoBase
 
@@ -16,25 +15,17 @@ class User(RepoBase):
         return self._api.user.settings().data
 
     def base_folder(self) -> UUID:
-        return self._api.user.base_folder().data.uuid
+        return self._ensure_base_folder_uuid()
 
     def master_keys(self) -> list[str]:
-        """Retrieve user's master keys"""
+        """Retrieve user's master keys and update it in the context"""
 
-        master_key = self._current_master_key
-        master_key_enc = encrypt_metadata(master_key, master_key)
-        master_keys_enc = self._api.user.master_keys(UserMasterKeysRequestData(master_keys=master_key_enc)).data.keys
-        master_keys = decrypt_master_keys(master_keys_enc, master_key)
+        return self._ensure_master_keys()
 
-        return master_keys
-
-    def key_pair(self) -> UserKeyPairInfo:
+    def key_pair(self) -> UserKeyPair:
         """Return user's decrypted public/private key pair"""
 
-        key_pair = self._api.user.key_pair_info().data
-        key_pair.private_key = decrypt_metadata(key_pair.private_key, self._master_keys)
-
-        return key_pair
+        return self._ensure_key_pair()
 
 
 class AsyncUser(AsyncRepoBase):
@@ -47,24 +38,14 @@ class AsyncUser(AsyncRepoBase):
         return (await self._api.user.settings()).data
 
     async def base_folder(self) -> UUID:
-        return (await self._api.user.base_folder()).data.uuid
+        return await self._ensure_base_folder_uuid()
 
     async def master_keys(self) -> list[str]:
         """Retrieve user's master keys"""
 
-        master_key = self._current_master_key
-        master_key_enc = await self._runner.run_sync(encrypt_metadata, master_key, master_key)
-        master_keys_enc = (
-            await self._api.user.master_keys(UserMasterKeysRequestData(master_keys=master_key_enc))
-        ).data.keys
-        master_keys = await self._runner.run_sync(decrypt_master_keys, master_keys_enc, master_key)
+        return await self._ensure_master_keys()
 
-        return master_keys
-
-    async def key_pair(self) -> UserKeyPairInfo:
+    async def key_pair(self) -> UserKeyPair:
         """Return user's decrypted public/private key pair"""
 
-        key_pair = (await self._api.user.key_pair_info()).data
-        key_pair.private_key = await self._runner.run_sync(decrypt_metadata, key_pair.private_key, self._master_keys)
-
-        return key_pair
+        return await self._ensure_key_pair()

@@ -77,7 +77,8 @@ class Auth(AuthMixIn, RepoBase):
         self._context.master_keys = master_keys
         self._context.public_key = login_info.public_key
         self._context.private_key = private_key
-        self._context.user_id = auth_info.id
+
+        self._ensure_base_folder_uuid()
 
         return UserKeys(
             api_key=login_info.api_key,
@@ -129,7 +130,8 @@ class AsyncAuth(AuthMixIn, AsyncRepoBase):
         self._context.master_keys = master_keys
         self._context.public_key = login_info.public_key
         self._context.private_key = private_key
-        self._context.user_id = auth_info.id
+
+        await self._ensure_base_folder_uuid()
 
         return UserKeys(
             api_key=login_info.api_key,

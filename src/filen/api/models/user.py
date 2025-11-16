@@ -1,7 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from pydantic import EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field
 
 from .base import RequestData, ResponseData, ValidationAliasedModel
 
@@ -50,6 +50,11 @@ class UserKeyPairInfo(ValidationAliasedModel):
 
 
 class UserKeyPairInfoResponseData(ResponseData[UserKeyPairInfo]): ...
+
+
+class UserKeyPair(BaseModel):
+    public_key: str
+    private_key: str
 
 
 class UserBaseFolder(ValidationAliasedModel):

@@ -9,6 +9,8 @@ from ._base import AsyncRepoBase, FilenClientGenericBase, RepoBase
 
 
 class FilenClientBase(FilenClientGenericBase[Client, FilenAPI, RepoBase, RunnerBase]):
+    """Base class for Filen sync clients"""
+
     def _create_default_runner(self) -> RunnerBase:
         return ThreadRunner()
 
@@ -32,6 +34,8 @@ class FilenClientBase(FilenClientGenericBase[Client, FilenAPI, RepoBase, RunnerB
 
 
 class AsyncFilenClientBase(FilenClientGenericBase[AsyncClient, AsyncFilenAPI, AsyncRepoBase, AsyncRunnerBase]):
+    """Base class for Filen async clients"""
+
     def _create_default_runner(self) -> AsyncRunnerBase:
         return AsyncThreadRunner()
 

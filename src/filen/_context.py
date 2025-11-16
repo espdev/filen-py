@@ -1,9 +1,10 @@
-from typing import Self
+from typing import NoReturn, Self
 from dataclasses import dataclass
 from uuid import UUID
 
 from filen.api.models.auth import AuthVersion
 from filen.config import FilenConfig
+from filen.errors import InaccessibleKeysError
 
 
 @dataclass
@@ -20,7 +21,6 @@ class Context:
     public_key: str | None
     private_key: str | None
 
-    user_id: int | None
     base_folder_uuid: UUID | None
 
     @classmethod
@@ -29,12 +29,11 @@ class Context:
             api_url=str(config.api_url),
             auth_version=AuthVersion.v2,
             api_key=config.api_key.get_secret_value() if config.api_key else None,
-            master_keys=[config.master_key] if config.master_key else [],
+            master_keys=[config.master_key.get_secret_value()] if config.master_key else [],
             email=str(config.email) if config.email else None,
             password=config.password.get_secret_value() if config.password else None,
             public_key=None,
             private_key=None,
-            user_id=None,
             base_folder_uuid=None,
         )
 
@@ -55,3 +54,27 @@ class Context:
         """Return True if the context contains email/password for login"""
 
         return self.email is not None and self.password is not None
+
+    @property
+    def has_keypair(self) -> bool:
+        """Return True if the context contains private and public keys for asymmetric encryption"""
+
+        return self.public_key is not None and self.private_key is not None
+
+    @property
+    def current_master_key(self) -> str:
+        if not self.has_master_keys:
+            raise InaccessibleKeysError('There are no master keys in the context.')
+        return self.master_keys[-1]
+
+    def raise_for_inaccessible_keys(self) -> None | NoReturn:
+        """Raise InaccessibleKeysError if it is not possible to obtain the user's keys in any way"""
+
+        if self.has_master_keys:
+            return
+
+        if not self.has_api_key:
+            raise InaccessibleKeysError("There are no API key in the context to ensure user's keys.")
+
+        if not self.has_credentials:
+            raise InaccessibleKeysError("There are no credentials in the context to ensure user's keys.")
