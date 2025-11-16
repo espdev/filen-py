@@ -5,10 +5,10 @@ from httpx import AsyncClient, Client
 from filen.api import AsyncFilenAPI, FilenAPI
 from filen.runners import AsyncRunnerBase, AsyncThreadRunner, RunnerBase, ThreadRunner
 
-from ._base import AsyncRepo, FilenClientRepoBase, Repo
+from ._base import AsyncRepoBase, FilenClientGenericBase, RepoBase
 
 
-class FilenClientRepo(FilenClientRepoBase[Client, FilenAPI, Repo, RunnerBase]):
+class FilenClientBase(FilenClientGenericBase[Client, FilenAPI, RepoBase, RunnerBase]):
     def _create_default_runner(self) -> RunnerBase:
         return ThreadRunner()
 
@@ -31,7 +31,7 @@ class FilenClientRepo(FilenClientRepoBase[Client, FilenAPI, Repo, RunnerBase]):
         return None
 
 
-class AsyncFilenClientRepo(FilenClientRepoBase[AsyncClient, AsyncFilenAPI, AsyncRepo, AsyncRunnerBase]):
+class AsyncFilenClientBase(FilenClientGenericBase[AsyncClient, AsyncFilenAPI, AsyncRepoBase, AsyncRunnerBase]):
     def _create_default_runner(self) -> AsyncRunnerBase:
         return AsyncThreadRunner()
 

@@ -5,15 +5,15 @@ Repositories implement functionality for interacting with Filen service on high-
 """
 
 from ._auth import AsyncAuth, Auth
-from ._base import AsyncRepo, Repo, async_repo, repo
-from ._client import AsyncFilenClientRepo, FilenClientRepo
+from ._base import AsyncRepoBase, RepoBase, async_repo, repo
+from ._client import AsyncFilenClientBase, FilenClientBase
 from ._user import AsyncUser, User
 
 __all__ = [
-    'FilenClientRepo',
-    'AsyncFilenClientRepo',
-    'Repo',
-    'AsyncRepo',
+    'FilenClientBase',
+    'AsyncFilenClientBase',
+    'RepoBase',
+    'AsyncRepoBase',
     'Auth',
     'AsyncAuth',
     'User',

@@ -18,7 +18,7 @@ class Unset: ...
 UNSET = Unset()
 
 
-class RepoBase[TFilenAPI: FilenAPI | AsyncFilenAPI, TRunner: RunnerBase | AsyncRunnerBase]:
+class RepoGenericBase[TFilenAPI: FilenAPI | AsyncFilenAPI, TRunner: RunnerBase | AsyncRunnerBase]:
     """Base generic class for all sync/async repository classes"""
 
     def __init__(self, context: Context, api: TFilenAPI, runner: TRunner) -> None:
@@ -28,29 +28,29 @@ class RepoBase[TFilenAPI: FilenAPI | AsyncFilenAPI, TRunner: RunnerBase | AsyncR
 
     @property
     def _current_master_key(self) -> str:
-        if not self._context.has_master_keys():
+        if not self._context.has_master_keys:
             raise NoMasterKeysError('There are no master keys.')
         return self._context.master_keys[-1]
 
     @property
     def _master_keys(self) -> list[str]:
-        if not self._context.has_master_keys():
+        if not self._context.has_master_keys:
             raise NoMasterKeysError('There are no master keys.')
         return self._context.master_keys
 
 
-class Repo(RepoBase[FilenAPI, RunnerBase]):
+class RepoBase(RepoGenericBase[FilenAPI, RunnerBase]):
     """Repository base class for all sync repository classes"""
 
 
-class AsyncRepo(RepoBase[AsyncFilenAPI, AsyncRunnerBase]):
+class AsyncRepoBase(RepoGenericBase[AsyncFilenAPI, AsyncRunnerBase]):
     """Repository base class for all async repository classes"""
 
 
-class FilenClientRepoBase[
+class FilenClientGenericBase[
     TClient: Client | AsyncClient,
     TAPI: FilenAPI | AsyncFilenAPI,
-    TRepo: Repo | AsyncRepo,
+    TRepo: RepoBase | AsyncRepoBase,
     TRunner: RunnerBase | AsyncRunnerBase,
 ](ABC):
     """Base generic repository class (facade) for Filen sync/async clients"""
@@ -104,7 +104,7 @@ class FilenClientRepoBase[
         return repo_type(context=self._context, api=self._api, runner=self._runner)
 
 
-class _RepoDescriptor[TRepo: Repo | AsyncRepo]:
+class RepoGenericDescriptor[TRepo: RepoBase | AsyncRepoBase]:
     """Generic descriptor initializes and caches repository instances in Filen client sync/async classes."""
 
     def __init__(self, repo_type: Type[TRepo]) -> None:
@@ -113,8 +113,8 @@ class _RepoDescriptor[TRepo: Repo | AsyncRepo]:
 
     def __get__(
         self,
-        client: FilenClientRepoBase | None,
-        client_type: Type[FilenClientRepoBase] | None = None,
+        client: FilenClientGenericBase | None,
+        client_type: Type[FilenClientGenericBase] | None = None,
     ) -> TRepo | Self:
         if client is None:
             return self
@@ -128,8 +128,8 @@ class _RepoDescriptor[TRepo: Repo | AsyncRepo]:
         return self._repos[_id]
 
 
-repo = _RepoDescriptor[Repo]
+repo = RepoGenericDescriptor[RepoBase]
 """Repository descriptor for creating repositories in sync Filen client"""
 
-async_repo = _RepoDescriptor[AsyncRepo]
+async_repo = RepoGenericDescriptor[AsyncRepoBase]
 """Repository descriptor for creating repositories in async Filen client"""

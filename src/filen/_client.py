@@ -1,8 +1,8 @@
 from filen.api.models.auth import NO_2FA_CODE_PLACEHOLDER, UserKeys
-from filen.repo import AsyncAuth, AsyncFilenClientRepo, AsyncUser, Auth, FilenClientRepo, User, async_repo, repo
+from filen.repo import AsyncAuth, AsyncFilenClientBase, AsyncUser, Auth, FilenClientBase, User, async_repo, repo
 
 
-class FilenClient(FilenClientRepo):
+class FilenClient(FilenClientBase):
     """Filen client"""
 
     _auth: Auth = repo(Auth)
@@ -15,7 +15,7 @@ class FilenClient(FilenClientRepo):
         return self._auth.logged_in()
 
 
-class AsyncFilenClient(AsyncFilenClientRepo):
+class AsyncFilenClient(AsyncFilenClientBase):
     """Filen async client"""
 
     _auth: AsyncAuth = async_repo(AsyncAuth)

@@ -3,10 +3,10 @@ from uuid import UUID
 from filen.api.models.user import UserInfo, UserKeyPairInfo, UserMasterKeysRequestData, UserSettings
 from filen.crypto import decrypt_master_keys, decrypt_metadata, encrypt_metadata
 
-from ._base import AsyncRepo, Repo
+from ._base import AsyncRepoBase, RepoBase
 
 
-class User(Repo):
+class User(RepoBase):
     """User repository"""
 
     def info(self) -> UserInfo:
@@ -37,7 +37,7 @@ class User(Repo):
         return key_pair
 
 
-class AsyncUser(AsyncRepo):
+class AsyncUser(AsyncRepoBase):
     """Async user repository"""
 
     async def info(self) -> UserInfo:

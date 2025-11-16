@@ -12,7 +12,7 @@ from filen.api.models.auth import (
 from filen.crypto import decrypt_master_keys, decrypt_metadata, derive_master_key_and_hashed_password
 from filen.errors import FilenError, RequestFailedError
 
-from ._base import AsyncRepo, Repo
+from ._base import AsyncRepoBase, RepoBase
 
 
 class AuthMixIn:
@@ -28,8 +28,8 @@ class AuthMixIn:
     def _check_login(self):
         res = {
             'ok': (
-                self._context.has_api_key()
-                and (self._context.has_master_keys() or self._context.has_credentials())
+                self._context.has_api_key
+                and (self._context.has_master_keys or self._context.has_credentials)
                 and self._context.auth_version in self.supported_auth_versions
             )
         }
@@ -42,7 +42,7 @@ class AuthMixIn:
                 raise
 
 
-class Auth(AuthMixIn, Repo):
+class Auth(AuthMixIn, RepoBase):
     """Auth repository"""
 
     def info(self, email: str) -> AuthInfo:
@@ -93,7 +93,7 @@ class Auth(AuthMixIn, Repo):
         return res['ok']
 
 
-class AsyncAuth(AuthMixIn, AsyncRepo):
+class AsyncAuth(AuthMixIn, AsyncRepoBase):
     """Async auth repository"""
 
     async def info(self, email: str) -> AuthInfo:
