@@ -84,6 +84,7 @@ class Auth(AuthMixIn, RepoBase):
             master_keys=master_keys,
             public_key=login_info.public_key,
             private_key=private_key,
+            dek=login_info.dek,
         )
 
     def logged_in(self) -> bool:
@@ -135,6 +136,7 @@ class AsyncAuth(AuthMixIn, AsyncRepoBase):
             master_keys=master_keys,
             public_key=login_info.public_key,
             private_key=private_key,
+            dek=login_info.dek,
         )
 
     async def logged_in(self) -> bool:

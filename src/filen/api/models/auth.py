@@ -54,3 +54,4 @@ class UserKeys(BaseModel):
     master_keys: list[str]
     public_key: str
     private_key: str
+    dek: str | None
