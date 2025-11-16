@@ -27,14 +27,14 @@ class RepoBase[TFilenAPI: FilenAPI | AsyncFilenAPI, TRunner: RunnerBase | AsyncR
         self._runner = runner
 
     @property
-    def _latest_master_key(self) -> str:
-        if not self._context.is_valid_master_keys:
+    def _current_master_key(self) -> str:
+        if not self._context.has_master_keys():
             raise NoMasterKeysError('There are no master keys.')
         return self._context.master_keys[-1]
 
     @property
     def _master_keys(self) -> list[str]:
-        if not self._context.is_valid_master_keys:
+        if not self._context.has_master_keys():
             raise NoMasterKeysError('There are no master keys.')
         return self._context.master_keys
 

@@ -4,7 +4,6 @@ from uuid import UUID
 
 from filen.api.models.auth import AuthVersion
 from filen.config import FilenConfig
-from filen.errors import NoMasterKeysError
 
 
 @dataclass
@@ -12,8 +11,11 @@ class Context:
     """Filen client context"""
 
     api_url: str
-    api_key: str | None
+    auth_version: AuthVersion
 
+    email: str | None
+    password: str | None
+    api_key: str | None
     master_keys: list[str]
     public_key: str | None
     private_key: str | None
@@ -21,38 +23,32 @@ class Context:
     user_id: int | None
     base_folder_uuid: UUID | None
 
-    auth_version: AuthVersion
-
     @classmethod
     def create_from_config(cls, config: FilenConfig) -> Self:
         return cls(
             api_url=str(config.api_url),
+            auth_version=AuthVersion.v2,
+            email=str(config.email) if config.email else None,
+            password=config.password.get_secret_value() if config.password else None,
             api_key=config.api_key.get_secret_value() if config.api_key else None,
-            master_keys=[k.get_secret_value() for k in config.master_keys],
+            master_keys=[config.master_key] if config.master_key else [],
             public_key=None,
             private_key=None,
             user_id=None,
             base_folder_uuid=None,
-            auth_version=AuthVersion.v2,
         )
 
-    @property
-    def latest_master_key(self) -> str:
-        if not self.master_keys:
-            raise NoMasterKeysError('There are no master keys in the config.')
-        return self.master_keys[-1]
+    def has_api_key(self) -> bool:
+        """Return True if the context contains API key for access to API"""
 
-    def is_valid_for_auth(self) -> bool:
-        """Return True if the config is valid for authorized access to API"""
+        return self.api_key is not None
 
-        # fmt: off
-        return (
-            self.auth_version is not None
-            and self.api_key is not None
-        )
-        # fmt: on
+    def has_credentials(self) -> bool:
+        """Return True if the context contains email/password for login"""
 
-    def is_valid_master_keys(self) -> bool:
-        """Return True if the config contains valid encryption master keys"""
+        return self.email is not None and self.password is not None
+
+    def has_master_keys(self) -> bool:
+        """Return True if the context contains encryption master keys"""
 
         return len(self.master_keys) > 0

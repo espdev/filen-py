@@ -1,7 +1,7 @@
-from typing import Annotated, Final
+from typing import Final
 
-from pydantic import HttpUrl, SecretStr, field_validator
-from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+from pydantic import EmailStr, HttpUrl, SecretStr
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 FILEN_API_URL: Final = 'https://gateway.filen.io/v3'
 
@@ -10,8 +10,11 @@ class FilenConfig(BaseSettings):
     """Filen configuration"""
 
     api_url: HttpUrl = HttpUrl(FILEN_API_URL)
+
+    email: EmailStr | None = None
+    password: SecretStr | None = None
+    master_key: SecretStr | None = None
     api_key: SecretStr | None = None
-    master_keys: Annotated[list[SecretStr], NoDecode] = []
 
     model_config = SettingsConfigDict(
         validate_assignment=True,
@@ -21,10 +24,3 @@ class FilenConfig(BaseSettings):
         env_file_encoding='utf-8',
         extra='ignore',
     )
-
-    @field_validator('master_keys', mode='before')
-    @classmethod
-    def parse_master_keys(cls, v):
-        if v and isinstance(v, str):
-            return v.split('|')
-        return v

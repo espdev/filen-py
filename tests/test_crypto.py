@@ -10,7 +10,7 @@ from filen.crypto import (
     decrypt_content,
     decrypt_master_keys,
     decrypt_metadata,
-    derive_password_and_master_key,
+    derive_master_key_and_hashed_password,
     encrypt_content,
     encrypt_master_keys,
     encrypt_metadata,
@@ -30,7 +30,7 @@ def test_derive_password_and_master_key():
     password = 'Hello@W0rld123!'
     salt = '4bOVDgDoVqV9PMkuOXWi6FB91K2MvTV84weHsUNHpVmbWXzq8mclnCqjX9qEyA5guIu590W63HlcYAAPTQlbZLplZC_UBjNKnv-O'
 
-    res = derive_password_and_master_key(password, salt)
+    res = derive_master_key_and_hashed_password(password, salt)
 
     assert res.password == (
         '6391048cdfc0df0f933093f25ddb333cc7ea9363201f4e617b521227db88887f9e49904'

@@ -1,7 +1,7 @@
 from typing import Annotated, Final, Literal
 from enum import IntEnum
 
-from pydantic import EmailStr, StringConstraints
+from pydantic import BaseModel, EmailStr, StringConstraints
 
 from .base import RequestData, ResponseData, ValidationAliasedModel
 
@@ -47,3 +47,10 @@ class LoginData(ValidationAliasedModel):
 
 
 class LoginResponseData(ResponseData[LoginData]): ...
+
+
+class UserKeys(BaseModel):
+    api_key: str
+    master_keys: list[str]
+    public_key: str
+    private_key: str

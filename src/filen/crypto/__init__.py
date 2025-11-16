@@ -1,9 +1,9 @@
 from ._content import decrypt_content, encrypt_content
 from ._keypair import KeyPair, create_der_keypair, generate_private_key, keypair_der_to_pem
 from ._masterkey import (
-    DerivedPasswordAndMasterKey,
+    DerivedInfo,
     decrypt_master_keys,
-    derive_password_and_master_key,
+    derive_master_key_and_hashed_password,
     encrypt_master_keys,
 )
 from ._metadata import (
@@ -17,11 +17,11 @@ from ._metadata import (
 )
 
 __all__ = [
-    'DerivedPasswordAndMasterKey',
+    'DerivedInfo',
     'MetadataEncryptionVersion',
     'MetadataCipherBase',
     'KeyPair',
-    'derive_password_and_master_key',
+    'derive_master_key_and_hashed_password',
     'encrypt_master_keys',
     'decrypt_master_keys',
     'current_metadata_encryption_version',

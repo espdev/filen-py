@@ -22,20 +22,20 @@ master_key_pbkdf2hmac = partial(
 
 
 @dataclass
-class DerivedPasswordAndMasterKey:
+class DerivedInfo:
     password: str
     master_key: str
 
 
-def derive_password_and_master_key(password: str, salt: str) -> DerivedPasswordAndMasterKey:
-    """Derive hashed password and master key from the raw password and salt"""
+def derive_master_key_and_hashed_password(password: str, salt: str) -> DerivedInfo:
+    """Derive master key and hashed password from the raw password and salt"""
 
     kdf = master_key_pbkdf2hmac(salt=salt.encode())
     key = kdf.derive(password.encode()).hex()
 
     split_index = len(key) // 2
 
-    return DerivedPasswordAndMasterKey(
+    return DerivedInfo(
         password=sha512(key[split_index:].encode()).hexdigest(),
         master_key=key[:split_index],
     )
