@@ -90,6 +90,11 @@ class RepoBase(RepoGenericBase[FilenAPI, RunnerBase]):
         self._context.base_folder_uuid = self._api.user.base_folder().data.uuid
         return self._context.base_folder_uuid
 
+    def _ensure_context(self):
+        self._ensure_master_keys()
+        self._ensure_key_pair()
+        self._ensure_base_folder_uuid()
+
 
 class AsyncRepoBase(RepoGenericBase[AsyncFilenAPI, AsyncRunnerBase]):
     """Repository base class for all async repository classes"""
@@ -148,6 +153,11 @@ class AsyncRepoBase(RepoGenericBase[AsyncFilenAPI, AsyncRunnerBase]):
 
         self._context.base_folder_uuid = (await self._api.user.base_folder()).data.uuid
         return self._context.base_folder_uuid
+
+    async def _ensure_context(self):
+        await self._ensure_master_keys()
+        await self._ensure_key_pair()
+        await self._ensure_base_folder_uuid()
 
 
 class FilenClientGenericBase[
