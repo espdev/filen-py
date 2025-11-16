@@ -29,9 +29,7 @@ class FilenClient(FilenClientBase):
     def ensure_context(self):
         """Ensure the client context info or raise an exception"""
 
-        self.user.master_keys()
-        self.user.key_pair()
-        self.user.base_folder()
+        self._auth.ensure_context()
 
 
 class AsyncFilenClient(AsyncFilenClientBase):
@@ -50,6 +48,4 @@ class AsyncFilenClient(AsyncFilenClientBase):
     async def ensure_context(self):
         """Ensure the client context info or raise an exception"""
 
-        await self.user.master_keys()
-        await self.user.key_pair()
-        await self.user.base_folder()
+        await self._auth.ensure_context()

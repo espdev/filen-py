@@ -94,6 +94,9 @@ class Auth(AuthMixIn, RepoBase):
                 _ = self._api.user.info()
         return res['ok']
 
+    def ensure_context(self):
+        self._ensure_context()
+
 
 class AsyncAuth(AuthMixIn, AsyncRepoBase):
     """Async auth repository"""
@@ -146,3 +149,6 @@ class AsyncAuth(AuthMixIn, AsyncRepoBase):
             if res['ok']:
                 _ = await self._api.user.info()
         return res['ok']
+
+    async def ensure_context(self):
+        await self._ensure_context()
