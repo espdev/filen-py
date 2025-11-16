@@ -12,14 +12,6 @@ from filen.config import FilenConfig
 from filen.crypto import decrypt_master_keys, decrypt_metadata, derive_master_key_and_hashed_password, encrypt_metadata
 from filen.runners import AsyncRunnerBase, RunnerBase
 
-type TimeoutType = Timeout | float | tuple[float, float, float, float]
-
-
-class Unset: ...
-
-
-UNSET = Unset()
-
 
 class RepoGenericBase[TFilenAPI: FilenAPI | AsyncFilenAPI, TRunner: RunnerBase | AsyncRunnerBase]:
     """Base generic class for all sync/async repository classes"""
@@ -174,7 +166,6 @@ class FilenClientGenericBase[
         *,
         runner: TRunner | None = None,
         http_client: TClient | None = None,
-        timeout: TimeoutType | None | Unset = UNSET,
     ) -> None:
         config = config or FilenConfig()
         self._context = Context.create_from_config(config)
@@ -185,11 +176,10 @@ class FilenClientGenericBase[
         self._http_client = http_client or self._create_client()
         self._owns_http_client = http_client is None
 
-        if not self._owns_http_client:
+        if self._owns_http_client:
+            self._http_client.timeout = config.request_timeout
+        else:
             self._http_client.base_url = self._context.api_url
-
-        if timeout is not UNSET:
-            self._http_client.timeout = timeout
 
         self._api = self._create_api()
 

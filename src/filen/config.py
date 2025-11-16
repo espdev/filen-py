@@ -4,6 +4,7 @@ from pydantic import EmailStr, HttpUrl, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 FILEN_API_URL: Final = 'https://gateway.filen.io/v3'
+DEFAULT_REQUEST_TIMEOUT: Final = 15.0  # sec
 
 
 class FilenConfig(BaseSettings):
@@ -16,8 +17,10 @@ class FilenConfig(BaseSettings):
     master_key: SecretStr | None = None
     api_key: SecretStr | None = None
 
+    request_timeout: float | tuple[float, float, float, float] = DEFAULT_REQUEST_TIMEOUT
+
     model_config = SettingsConfigDict(
-        validate_assignment=True,
+        frozen=True,
         env_prefix='FILEN_',
         env_ignore_empty=True,
         env_file='.env',
