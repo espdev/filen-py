@@ -4,9 +4,11 @@ from enum import StrEnum
 from httpx import AsyncClient, Client
 
 from filen._context import Context
+from filen._log import debug_log_api_request, debug_log_api_response
 from filen.errors import APIKeyRequiredError, RequestErrorHandler
 
-from .models.auth import RequestData, ResponseData
+from .models.auth import RequestData
+from .models.base import ResponseData
 
 
 class APIEndpoint(StrEnum):
@@ -54,7 +56,9 @@ class APIBase(APIGenericBase[Client]):
         headers = self._ensure_api_key(use_api_key, endpoint)
 
         with self._request_error_handler:
+            debug_log_api_request('post', endpoint, data)
             r = self._http_client.post(endpoint, headers=headers, json=data.dump_for_payload())
+            debug_log_api_response('post', endpoint, r)
             return response_model.from_response(r)
 
     def _get[TResponse: ResponseData](
@@ -66,7 +70,9 @@ class APIBase(APIGenericBase[Client]):
         headers = self._ensure_api_key(use_api_key, endpoint)
 
         with self._request_error_handler:
+            debug_log_api_request('get', endpoint)
             r = self._http_client.get(endpoint, headers=headers)
+            debug_log_api_response('get', endpoint, r)
             return response_model.from_response(r)
 
 
@@ -84,7 +90,9 @@ class AsyncAPIBase(APIGenericBase[AsyncClient]):
         headers = self._ensure_api_key(use_api_key, endpoint)
 
         with self._request_error_handler:
+            debug_log_api_request('post', endpoint, data)
             r = await self._http_client.post(endpoint, headers=headers, json=data.dump_for_payload())
+            debug_log_api_response('post', endpoint, r)
             return response_model.from_response(r)
 
     async def _get[TResponse: ResponseData](
@@ -96,8 +104,11 @@ class AsyncAPIBase(APIGenericBase[AsyncClient]):
         headers = self._ensure_api_key(use_api_key, endpoint)
 
         with self._request_error_handler:
+            debug_log_api_request('get', endpoint)
             r = await self._http_client.get(endpoint, headers=headers)
-            return response_model.from_response(r)
+            resp = response_model.from_response(r)
+            debug_log_api_response('get', endpoint, r)
+            return resp
 
 
 class FilenAPIGenericBase[TClient: Client | AsyncClient, TAPI: APIBase | AsyncAPIBase]:
