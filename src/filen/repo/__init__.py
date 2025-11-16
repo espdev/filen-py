@@ -7,7 +7,7 @@ Repositories implement functionality for interacting with Filen service on high-
 from ._auth import AsyncAuth, Auth
 from ._base import AsyncRepoBase, RepoBase, async_repo, repo
 from ._client import AsyncFilenClientBase, FilenClientBase
-from ._dir import AsyncDir, Dir
+from ._storage import AsyncStorage, Storage
 from ._user import AsyncUser, User
 
 __all__ = [
@@ -19,8 +19,8 @@ __all__ = [
     'AsyncAuth',
     'User',
     'AsyncUser',
-    'Dir',
-    'AsyncDir',
+    'Storage',
+    'AsyncStorage',
     'repo',
     'async_repo',
 ]

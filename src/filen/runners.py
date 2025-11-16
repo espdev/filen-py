@@ -1,6 +1,7 @@
 from typing import Any, Awaitable, Callable, Self
 from abc import ABC, abstractmethod
 import asyncio
+from collections.abc import Hashable
 from concurrent.futures import Executor, ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 
 try:
@@ -20,7 +21,7 @@ from uuid import UUID
 from anyio import CancelScope, create_task_group, to_interpreter, to_process, to_thread
 from anyio.abc import TaskGroup as AnyIOTaskGroup
 
-type TaskId = str | int | UUID
+type TaskId = str | int | UUID | Hashable | tuple[Hashable, ...]
 
 
 class TaskGroup:
@@ -44,7 +45,7 @@ class TaskGroup:
         **kwargs: P.kwargs,
     ):
         if task_id in self._results:
-            raise ValueError(f'A task with {task_id} task_id is already added.')
+            raise ValueError(f'A task with task_id {task_id} is already added.')
 
         # keep the order of results in the order tasks were added
         self._results[task_id] = None
@@ -109,7 +110,7 @@ class AsyncTaskGroup:
             raise ValueError('Task group is not initialized. The context manager must be used.')
 
         if task_id in self._results:
-            raise ValueError(f'A task with {task_id} task_id is already added.')
+            raise ValueError(f'A task with task_id {task_id} is already added.')
 
         # keep the order of results in the order tasks were added
         self._results[task_id] = None

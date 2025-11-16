@@ -1,12 +1,12 @@
 from filen.api.models.auth import NO_2FA_CODE_PLACEHOLDER, UserKeys
 from filen.repo import (
     AsyncAuth,
-    AsyncDir,
     AsyncFilenClientBase,
+    AsyncStorage,
     AsyncUser,
     Auth,
-    Dir,
     FilenClientBase,
+    Storage,
     User,
     async_repo,
     repo,
@@ -18,7 +18,7 @@ class FilenClient(FilenClientBase):
 
     _auth: Auth = repo(Auth)
     user: User = repo(User)
-    dir: Dir = repo(Dir)
+    storage: Storage = repo(Storage)
 
     def login(self, email: str, password: str, two_factor_code: str = NO_2FA_CODE_PLACEHOLDER) -> UserKeys:
         return self._auth.login(email, password, two_factor_code)
@@ -37,7 +37,7 @@ class AsyncFilenClient(AsyncFilenClientBase):
 
     _auth: AsyncAuth = async_repo(AsyncAuth)
     user: AsyncUser = async_repo(AsyncUser)
-    dir: AsyncDir = async_repo(AsyncDir)
+    storage: AsyncStorage = async_repo(AsyncStorage)
 
     async def login(self, email: str, password: str, two_factor_code: str = NO_2FA_CODE_PLACEHOLDER) -> UserKeys:
         return await self._auth.login(email, password, two_factor_code)
