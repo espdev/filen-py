@@ -16,11 +16,11 @@ class Context:
 
     email: str | None
     password: str | None
+
     api_key: str | None
     master_keys: list[str]
     public_key: str | None
     private_key: str | None
-
     base_folder_uuid: UUID | None
 
     @classmethod
@@ -28,10 +28,10 @@ class Context:
         return cls(
             api_url=str(config.api_url),
             auth_version=AuthVersion.v2,
-            api_key=config.api_key.get_secret_value() if config.api_key else None,
-            master_keys=[config.master_key.get_secret_value()] if config.master_key else [],
             email=str(config.email) if config.email else None,
             password=config.password.get_secret_value() if config.password else None,
+            api_key=config.api_key.get_secret_value() if config.api_key else None,
+            master_keys=[config.master_key.get_secret_value()] if config.master_key else [],
             public_key=None,
             private_key=None,
             base_folder_uuid=None,
@@ -60,6 +60,19 @@ class Context:
         """Return True if the context contains private and public keys for asymmetric encryption"""
 
         return self.public_key is not None and self.private_key is not None
+
+    @property
+    def is_valid(self) -> bool:
+        """Return True if the context is valid for use with Filen service"""
+
+        # fmt: off
+        return (
+            self.has_api_key
+            and self.has_master_keys
+            and self.has_keypair
+            and self.base_folder_uuid is not None
+        )
+        # fmt: on
 
     @property
     def current_master_key(self) -> str:

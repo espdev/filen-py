@@ -188,6 +188,10 @@ class FilenClientGenericBase[
         return self._http_client.is_closed  # noqa
 
     @property
+    def is_valid_context(self) -> bool:
+        return self._context.is_valid
+
+    @property
     def timeout(self) -> Timeout:
         return self._http_client.timeout  # noqa
 
