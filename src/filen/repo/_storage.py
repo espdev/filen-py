@@ -2,9 +2,11 @@ from typing import Final
 from uuid import UUID
 
 from filen.api.models.dir import (
-    ContentType,
     FolderContent,
+    FolderContentRequestData,
+    FolderContentType,
     FolderInfo,
+    FolderItem,
     FolderMetadata,
     FolderUUIDRequestData,
     UploadMetadata,
@@ -22,13 +24,13 @@ class StorageMixIn:
     @staticmethod
     def _collect_decrypted_metadata(
         folder_content: FolderContent,
-        decryption_results: dict[tuple[ContentType, int], str],
+        decryption_results: dict[tuple[FolderItem, int], str],
     ) -> FolderContent:
         for (t, i), metadata in decryption_results.items():
             match t:
-                case ContentType.upload:
+                case FolderItem.file:
                     folder_content.uploads[i].metadata = UploadMetadata.model_validate_json(metadata)
-                case ContentType.folder:
+                case FolderItem.folder:
                     folder_content.folders[i].name = FolderMetadata.model_validate_json(metadata).name
         return folder_content
 
@@ -57,20 +59,20 @@ class Storage(RepoBase, StorageMixIn):
 
         return folder_info
 
-    def folder_content(self, uuid: ItemId | None = None) -> FolderContent:
+    def folder_content(self, uuid: ItemId | FolderContentType | None = None) -> FolderContent:
         """Retrieve folder content with metadata decryption"""
 
         uuid = uuid if uuid else self._ensure_base_folder_uuid()
-        folder_content = self._api.dir.content(FolderUUIDRequestData(uuid=uuid)).data
+        folder_content = self._api.dir.content(FolderContentRequestData(uuid=uuid)).data
 
         master_keys = self._ensure_master_keys()
 
         with self._runner.task_group() as tg:
             for i, upload in enumerate(folder_content.uploads):
-                tg.add_task((ContentType.upload, i), decrypt_metadata, upload.metadata, master_keys)
+                tg.add_task((FolderItem.file, i), decrypt_metadata, upload.metadata, master_keys)
 
             for i, folder in enumerate(folder_content.folders):
-                tg.add_task((ContentType.folder, i), decrypt_metadata, folder.name, master_keys)
+                tg.add_task((FolderItem.folder, i), decrypt_metadata, folder.name, master_keys)
 
         return self._collect_decrypted_metadata(folder_content, tg.results)
 
@@ -81,7 +83,7 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
     async def base_folder(self) -> UUID:
         return await self._ensure_base_folder_uuid()
 
-    async def folder_info(self, uuid: ItemId | None = None) -> FolderInfo:
+    async def folder_info(self, uuid: ItemId | FolderContentType | None = None) -> FolderInfo:
         uuid = uuid if uuid else (await self._ensure_base_folder_uuid())
         folder_info = (await self._api.dir.info(FolderUUIDRequestData(uuid=uuid))).data
 
@@ -94,15 +96,15 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
 
     async def folder_content(self, uuid: ItemId | None = None) -> FolderContent:
         uuid = uuid if uuid else (await self._ensure_base_folder_uuid())
-        folder_content = (await self._api.dir.content(FolderUUIDRequestData(uuid=uuid))).data
+        folder_content = (await self._api.dir.content(FolderContentRequestData(uuid=uuid))).data
 
         master_keys = await self._ensure_master_keys()
 
         async with self._runner.task_group() as tg:
             for i, upload in enumerate(folder_content.uploads):
-                tg.add_task((ContentType.upload, i), decrypt_metadata, upload.metadata, master_keys)
+                tg.add_task((FolderItem.file, i), decrypt_metadata, upload.metadata, master_keys)
 
             for i, folder in enumerate(folder_content.folders):
-                tg.add_task((ContentType.folder, i), decrypt_metadata, folder.name, master_keys)
+                tg.add_task((FolderItem.folder, i), decrypt_metadata, folder.name, master_keys)
 
         return self._collect_decrypted_metadata(folder_content, tg.results)

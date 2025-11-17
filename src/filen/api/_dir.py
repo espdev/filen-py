@@ -1,4 +1,9 @@
-from filen.api.models.dir import FolderContentResponseData, FolderInfoResponseData, FolderUUIDRequestData
+from filen.api.models.dir import (
+    FolderContentRequestData,
+    FolderContentResponseData,
+    FolderInfoResponseData,
+    FolderUUIDRequestData,
+)
 
 from ._base import APIBase, APIEndpoint, AsyncAPIBase
 
@@ -12,7 +17,7 @@ class DirAPI(APIBase):
     def info(self, data: FolderUUIDRequestData) -> FolderInfoResponseData:
         return self._post(DirEndpoint.info, data, FolderInfoResponseData)
 
-    def content(self, data: FolderUUIDRequestData) -> FolderContentResponseData:
+    def content(self, data: FolderContentRequestData) -> FolderContentResponseData:
         return self._post(DirEndpoint.content, data, FolderContentResponseData)
 
 
@@ -20,5 +25,5 @@ class AsyncDirAPI(AsyncAPIBase):
     async def info(self, data: FolderUUIDRequestData) -> FolderInfoResponseData:
         return await self._post(DirEndpoint.info, data, FolderInfoResponseData)
 
-    async def content(self, data: FolderUUIDRequestData) -> FolderContentResponseData:
+    async def content(self, data: FolderContentRequestData) -> FolderContentResponseData:
         return await self._post(DirEndpoint.content, data, FolderContentResponseData)

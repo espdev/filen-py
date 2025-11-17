@@ -14,9 +14,16 @@ class FileEncryptionVersion(float, Enum):
     v3 = 3
 
 
-class ContentType(StrEnum):
-    upload = auto()
+class FolderItem(StrEnum):
+    file = auto()
     folder = auto()
+
+
+class FolderContentType(StrEnum):
+    favorites = auto()
+    recents = auto()
+    links = auto()
+    trash = auto()
 
 
 class FolderMetadata(ValidationAliasedModel):
@@ -39,6 +46,10 @@ class FolderUUIDRequestData(RequestData):
     uuid: UUID
 
 
+class FolderContentRequestData(RequestData):
+    uuid: UUID | FolderContentType
+
+
 class FolderInfo(ValidationAliasedModel):
     uuid: UUID
     name: Annotated[str, Field(validation_alias='nameEncrypted')]
@@ -54,26 +65,30 @@ class FolderInfoResponseData(ResponseData[FolderInfo]): ...
 
 class Upload(BaseModel):
     uuid: UUID
-    parent: UUID
+    parent: UUID | None
     metadata: str | UploadMetadata
     favorited: bool
+    version: FileEncryptionVersion
     rm: str
     region: str
     bucket: str
     size: int
     chunks: int
     timestamp: int
-    version: FileEncryptionVersion
+    trash_timestamp: int | None = None
 
 
 class Folder(BaseModel):
     uuid: UUID
     name: str
-    parent: UUID
-    timestamp: int
-    is_sync: bool
-    is_default: bool
+    parent: UUID | None
     color: str | None
+    timestamp: int
+    favorited: bool
+    is_sync: bool | None = None
+    is_default: bool | None = None
+    trash_parent: int | None = None
+    trash_timestamp: int | None = None
 
 
 class FolderContent(ValidationAliasedModel):
