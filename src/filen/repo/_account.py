@@ -9,13 +9,14 @@ from filen.api.models.auth import (
     LoginRequestData,
     UserKeys,
 )
+from filen.api.models.user import UserInfo, UserKeyPair, UserSettings
 from filen.crypto import decrypt_master_keys, decrypt_metadata, derive_master_key_and_hashed_password
 from filen.errors import FilenError, RequestFailedError
 
 from ._base import AsyncRepoBase, RepoBase
 
 
-class AuthMixIn:
+class AccountMixIn:
     supported_auth_versions = {AuthVersion.v2}
 
     _context: Context
@@ -42,10 +43,10 @@ class AuthMixIn:
                 raise
 
 
-class Auth(AuthMixIn, RepoBase):
-    """Auth repository"""
+class Account(RepoBase, AccountMixIn):
+    """Account repository"""
 
-    def info(self, email: str) -> AuthInfo:
+    def auth_info(self, email: str) -> AuthInfo:
         auth_info = self._api.auth.info(AuthInfoRequestData(email=email))
         self._check_auth_version(auth_info.data.auth_version)
         return auth_info.data
@@ -53,7 +54,7 @@ class Auth(AuthMixIn, RepoBase):
     def login(self, email: str, password: str, two_factor_code: str = NO_2FA_CODE_PLACEHOLDER) -> UserKeys:
         """Login in Filen service with email/password and optionally 2FA TOTP code"""
 
-        auth_info = self.info(email)
+        auth_info = self.auth_info(email)
         derived_info = derive_master_key_and_hashed_password(password, auth_info.salt)
 
         login_info = self._api.auth.login(
@@ -94,20 +95,33 @@ class Auth(AuthMixIn, RepoBase):
                 _ = self._api.user.info()
         return res['ok']
 
-    def ensure_context(self):
-        self._ensure_context()
+    def user_info(self) -> UserInfo:
+        return self._api.user.info().data
+
+    def user_settings(self) -> UserSettings:
+        return self._api.user.settings().data
+
+    def master_keys(self) -> list[str]:
+        """Retrieve user's master keys and update it in the context"""
+
+        return self._ensure_master_keys()
+
+    def key_pair(self) -> UserKeyPair:
+        """Return user's decrypted public/private key pair"""
+
+        return self._ensure_key_pair()
 
 
-class AsyncAuth(AuthMixIn, AsyncRepoBase):
-    """Async auth repository"""
+class AsyncAccount(AsyncRepoBase, AccountMixIn):
+    """Async account repository"""
 
-    async def info(self, email: str) -> AuthInfo:
+    async def auth_info(self, email: str) -> AuthInfo:
         auth_info = await self._api.auth.info(AuthInfoRequestData(email=email))
         self._check_auth_version(auth_info.data.auth_version)
         return auth_info.data
 
     async def login(self, email: str, password: str, two_factor_code: str = NO_2FA_CODE_PLACEHOLDER) -> UserKeys:
-        auth_info = await self.info(email)
+        auth_info = await self.auth_info(email)
         derived_info = await self._runner.run_sync(derive_master_key_and_hashed_password, password, auth_info.salt)
 
         login_info = (
@@ -150,5 +164,18 @@ class AsyncAuth(AuthMixIn, AsyncRepoBase):
                 _ = await self._api.user.info()
         return res['ok']
 
-    async def ensure_context(self):
-        await self._ensure_context()
+    async def user_info(self) -> UserInfo:
+        return (await self._api.user.info()).data
+
+    async def user_settings(self) -> UserSettings:
+        return (await self._api.user.settings()).data
+
+    async def master_keys(self) -> list[str]:
+        """Retrieve user's master keys"""
+
+        return await self._ensure_master_keys()
+
+    async def key_pair(self) -> UserKeyPair:
+        """Return user's decrypted public/private key pair"""
+
+        return await self._ensure_key_pair()

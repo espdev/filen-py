@@ -1,14 +1,9 @@
-from typing import Self, Type
-from abc import ABC, abstractmethod
 from uuid import UUID
-
-from httpx import AsyncClient, Client, Timeout
 
 from filen._context import Context
 from filen.api import AsyncFilenAPI, FilenAPI
 from filen.api.models.auth import AuthInfoRequestData
 from filen.api.models.user import UserKeyPair, UserMasterKeysRequestData
-from filen.config import FilenConfig
 from filen.crypto import decrypt_master_keys, decrypt_metadata, derive_master_key_and_hashed_password, encrypt_metadata
 from filen.runners import AsyncRunnerBase, RunnerBase
 
@@ -26,8 +21,10 @@ class RepoGenericBase[TFilenAPI: FilenAPI | AsyncFilenAPI, TRunner: RunnerBase |
         return self._api.is_closed  # noqa
 
 
-class RepoBase(RepoGenericBase[FilenAPI, RunnerBase]):
-    """Repository base class for all sync repository classes"""
+class EnsureContextMixIn:
+    _context: Context
+    _api: FilenAPI
+    _runner: RunnerBase
 
     def _ensure_master_keys(self) -> list[str]:
         """Ensure all user's master keus and cache it in the context or raise MasterKeysError"""
@@ -88,8 +85,14 @@ class RepoBase(RepoGenericBase[FilenAPI, RunnerBase]):
         self._ensure_base_folder_uuid()
 
 
-class AsyncRepoBase(RepoGenericBase[AsyncFilenAPI, AsyncRunnerBase]):
-    """Repository base class for all async repository classes"""
+class RepoBase(RepoGenericBase[FilenAPI, RunnerBase], EnsureContextMixIn):
+    """Repository base class for all sync repository classes"""
+
+
+class AsyncEnsureContextMixIn:
+    _context: Context
+    _api: AsyncFilenAPI
+    _runner: AsyncRunnerBase
 
     async def _ensure_master_keys(self) -> list[str]:
         if self._context.has_master_keys:
@@ -152,91 +155,5 @@ class AsyncRepoBase(RepoGenericBase[AsyncFilenAPI, AsyncRunnerBase]):
         await self._ensure_base_folder_uuid()
 
 
-class FilenClientGenericBase[
-    TClient: Client | AsyncClient,
-    TAPI: FilenAPI | AsyncFilenAPI,
-    TRepo: RepoBase | AsyncRepoBase,
-    TRunner: RunnerBase | AsyncRunnerBase,
-](ABC):
-    """Base generic repository class (facade) for Filen sync/async clients"""
-
-    def __init__(
-        self,
-        config: FilenConfig | None = None,
-        *,
-        runner: TRunner | None = None,
-        http_client: TClient | None = None,
-    ) -> None:
-        config = config or FilenConfig()
-        self._context = Context.create_from_config(config)
-
-        self._runner = runner or self._create_default_runner()
-        self._owns_runner = runner is None
-
-        self._http_client = http_client or self._create_client()
-        self._owns_http_client = http_client is None
-
-        if self._owns_http_client:
-            self._http_client.timeout = config.request_timeout
-        else:
-            self._http_client.base_url = self._context.api_url
-
-        self._api = self._create_api()
-
-    @property
-    def is_closed(self) -> bool:
-        return self._http_client.is_closed  # noqa
-
-    @property
-    def is_valid_context(self) -> bool:
-        return self._context.is_valid
-
-    @property
-    def timeout(self) -> Timeout:
-        return self._http_client.timeout  # noqa
-
-    @abstractmethod
-    def _create_default_runner(self) -> TRunner:
-        pass
-
-    @abstractmethod
-    def _create_client(self) -> TClient:
-        pass
-
-    @abstractmethod
-    def _create_api(self) -> TAPI:
-        pass
-
-    def _create_repo(self, repo_type: Type[TRepo]) -> TRepo:
-        return repo_type(context=self._context, api=self._api, runner=self._runner)
-
-
-class RepoGenericDescriptor[TRepo: RepoBase | AsyncRepoBase]:
-    """Generic descriptor initializes and caches repository instances in Filen client sync/async classes."""
-
-    def __init__(self, repo_type: Type[TRepo]) -> None:
-        self._repo_type = repo_type
-        self._repos: dict[int, TRepo] = {}
-
-    def __get__(
-        self,
-        client: FilenClientGenericBase | None,
-        client_type: Type[FilenClientGenericBase] | None = None,
-    ) -> TRepo | Self:
-        if client is None:
-            return self
-
-        # The descriptor can be used with several client instances
-        _id = id(client)
-
-        if _id not in self._repos:
-            self._repos[_id] = client._create_repo(self._repo_type)  # noqa
-
-        return self._repos[_id]
-
-
-repo = RepoGenericDescriptor[RepoBase]
-"""Repository descriptor for creating repositories in sync Filen client"""
-
-async_repo = RepoGenericDescriptor[AsyncRepoBase]
-"""Repository descriptor for creating repositories in async Filen client"""
+class AsyncRepoBase(RepoGenericBase[AsyncFilenAPI, AsyncRunnerBase], AsyncEnsureContextMixIn):
+    """Repository base class for all async repository classes"""

@@ -1,51 +1,29 @@
+from filen._base import AsyncFilenClientBase, FilenClientBase, repo
 from filen.api.models.auth import NO_2FA_CODE_PLACEHOLDER, UserKeys
-from filen.repo import (
-    AsyncAuth,
-    AsyncFilenClientBase,
-    AsyncStorage,
-    AsyncUser,
-    Auth,
-    FilenClientBase,
-    Storage,
-    User,
-    async_repo,
-    repo,
-)
+from filen.repo import Account, AsyncAccount, AsyncStorage, Storage
 
 
 class FilenClient(FilenClientBase):
     """Filen client"""
 
-    _auth: Auth = repo(Auth)
-    user: User = repo(User)
+    account: Account = repo(Account)
     storage: Storage = repo(Storage)
 
     def login(self, email: str, password: str, two_factor_code: str = NO_2FA_CODE_PLACEHOLDER) -> UserKeys:
-        return self._auth.login(email, password, two_factor_code)
+        return self.account.login(email, password, two_factor_code)
 
     def logged_in(self) -> bool:
-        return self._auth.logged_in()
-
-    def ensure_context(self):
-        """Ensure the client context info or raise an exception"""
-
-        self._auth.ensure_context()
+        return self.account.logged_in()
 
 
 class AsyncFilenClient(AsyncFilenClientBase):
     """Filen async client"""
 
-    _auth: AsyncAuth = async_repo(AsyncAuth)
-    user: AsyncUser = async_repo(AsyncUser)
-    storage: AsyncStorage = async_repo(AsyncStorage)
+    account: AsyncAccount = repo(AsyncAccount)
+    storage: AsyncStorage = repo(AsyncStorage)
 
     async def login(self, email: str, password: str, two_factor_code: str = NO_2FA_CODE_PLACEHOLDER) -> UserKeys:
-        return await self._auth.login(email, password, two_factor_code)
+        return await self.account.login(email, password, two_factor_code)
 
     async def logged_in(self) -> bool:
-        return await self._auth.logged_in()
-
-    async def ensure_context(self):
-        """Ensure the client context info or raise an exception"""
-
-        await self._auth.ensure_context()
+        return await self.account.logged_in()

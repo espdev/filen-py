@@ -39,7 +39,12 @@ class Storage(RepoBase, StorageMixIn):
     Provides methods for manipulating with directories and files in the cloud storage.
     """
 
-    def info(self, uuid: _ID | None = None) -> FolderInfo:
+    def base_folder(self) -> UUID:
+        """Retrieve the base foder UUID (root srorage UUID)"""
+
+        return self._ensure_base_folder_uuid()
+
+    def folder_info(self, uuid: _ID | None = None) -> FolderInfo:
         """Retrieve folder info with metadata decryption"""
 
         uuid = uuid if uuid else self._ensure_base_folder_uuid()
@@ -52,7 +57,7 @@ class Storage(RepoBase, StorageMixIn):
 
         return folder_info
 
-    def content(self, uuid: _ID | None = None) -> FolderContent:
+    def folder_content(self, uuid: _ID | None = None) -> FolderContent:
         """Retrieve folder content with metadata decryption"""
 
         uuid = uuid if uuid else self._ensure_base_folder_uuid()
@@ -73,7 +78,10 @@ class Storage(RepoBase, StorageMixIn):
 class AsyncStorage(AsyncRepoBase, StorageMixIn):
     """Async Storage repository"""
 
-    async def info(self, uuid: _ID | None = None) -> FolderInfo:
+    async def base_folder(self) -> UUID:
+        return await self._ensure_base_folder_uuid()
+
+    async def folder_info(self, uuid: _ID | None = None) -> FolderInfo:
         uuid = uuid if uuid else (await self._ensure_base_folder_uuid())
         folder_info = (await self._api.dir.info(FolderUUIDRequestData(uuid=uuid))).data
 
@@ -84,7 +92,7 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
 
         return folder_info
 
-    async def content(self, uuid: _ID | None = None) -> FolderContent:
+    async def folder_content(self, uuid: _ID | None = None) -> FolderContent:
         uuid = uuid if uuid else (await self._ensure_base_folder_uuid())
         folder_content = (await self._api.dir.content(FolderUUIDRequestData(uuid=uuid))).data
 

@@ -1,7 +1,7 @@
 from httpx import AsyncClient, Client
 
 from ._auth import AsyncAuthAPI, AuthAPI
-from ._base import APIBase, AsyncAPIBase, FilenAPIGenericBase, api, async_api
+from ._base import APIBase, AsyncAPIBase, FilenAPIGenericBase, api
 from ._dir import AsyncDirAPI, DirAPI
 from ._user import AsyncUserAPI, UserAPI
 
@@ -17,6 +17,6 @@ class FilenAPI(FilenAPIGenericBase[Client, APIBase]):
 class AsyncFilenAPI(FilenAPIGenericBase[AsyncClient, AsyncAPIBase]):
     """Filen API async provider (facade)"""
 
-    auth: AsyncAuthAPI = async_api(AsyncAuthAPI)
-    user: AsyncUserAPI = async_api(AsyncUserAPI)
-    dir: AsyncDirAPI = async_api(AsyncDirAPI)
+    auth: AsyncAuthAPI = api(AsyncAuthAPI)
+    user: AsyncUserAPI = api(AsyncUserAPI)
+    dir: AsyncDirAPI = api(AsyncDirAPI)

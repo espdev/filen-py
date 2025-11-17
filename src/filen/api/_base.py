@@ -1,14 +1,16 @@
-from typing import Self, Type
+from typing import TYPE_CHECKING, Self, Type
 from enum import StrEnum
 
 from httpx import AsyncClient, Client
 
-from filen._context import Context
 from filen._log import debug_log_api_request, debug_log_api_response
 from filen.errors import APIKeyRequiredError, RequestErrorHandler
 
 from .models.auth import RequestData
 from .models.base import ResponseData
+
+if TYPE_CHECKING:
+    from filen._context import Context
 
 
 class APIEndpoint(StrEnum):
@@ -18,7 +20,7 @@ class APIEndpoint(StrEnum):
 class APIGenericBase[TClient: Client | AsyncClient]:
     """Base generic class for all sync/async Filen APIs"""
 
-    def __init__(self, context: Context, http_client: TClient) -> None:
+    def __init__(self, context: 'Context', http_client: TClient) -> None:
         self._context = context
         self._http_client = http_client
         self._request_error_handler = RequestErrorHandler()
@@ -114,7 +116,7 @@ class AsyncAPIBase(APIGenericBase[AsyncClient]):
 class FilenAPIGenericBase[TClient: Client | AsyncClient, TAPI: APIBase | AsyncAPIBase]:
     """Base generic class for sync/async Filen API facades"""
 
-    def __init__(self, context: Context, http_client: TClient):
+    def __init__(self, context: 'Context', http_client: TClient):
         self._context = context
         self._http_client = http_client
 
@@ -126,18 +128,18 @@ class FilenAPIGenericBase[TClient: Client | AsyncClient, TAPI: APIBase | AsyncAP
         return api_type(context=self._context, http_client=self._http_client)
 
 
-class APIGenericDescriptor[TAPI: APIBase | AsyncAPIBase]:
-    """Generic descriptor class initializes and caches API instances in sync/async Filen API facades"""
+class APIDescriptor:
+    """Descriptor class initializes and caches API instances in sync/async Filen API facades"""
 
-    def __init__(self, api_type: Type[TAPI]) -> None:
+    def __init__(self, api_type: Type[APIBase | AsyncAPIBase]) -> None:
         self._api_type = api_type
-        self._apis: dict[int, TAPI] = {}
+        self._apis: dict[int, APIBase | AsyncAPIBase] = {}
 
     def __get__(
         self,
         filen_api: FilenAPIGenericBase | None,
         filen_api_type: Type[FilenAPIGenericBase] | None = None,
-    ) -> TAPI | Self:
+    ) -> APIBase | AsyncAPIBase | Self:
         if filen_api is None:
             return self
 
@@ -149,8 +151,4 @@ class APIGenericDescriptor[TAPI: APIBase | AsyncAPIBase]:
         return self._apis[_id]
 
 
-api = APIGenericDescriptor[APIBase]
-"""API descriptor should be used in sync Filen API facade"""
-
-async_api = APIGenericDescriptor[AsyncAPIBase]
-"""API descriptor should be used in async Filen API facade"""
+api = APIDescriptor
