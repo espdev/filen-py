@@ -13,7 +13,7 @@ from filen.crypto import decrypt_metadata
 
 from ._base import AsyncRepoBase, RepoBase
 
-type _ID = UUID | str
+type ItemId = UUID | str
 
 BASE_FOLDER_NAME: Final = 'default'
 
@@ -44,7 +44,7 @@ class Storage(RepoBase, StorageMixIn):
 
         return self._ensure_base_folder_uuid()
 
-    def folder_info(self, uuid: _ID | None = None) -> FolderInfo:
+    def folder_info(self, uuid: ItemId | None = None) -> FolderInfo:
         """Retrieve folder info with metadata decryption"""
 
         uuid = uuid if uuid else self._ensure_base_folder_uuid()
@@ -57,7 +57,7 @@ class Storage(RepoBase, StorageMixIn):
 
         return folder_info
 
-    def folder_content(self, uuid: _ID | None = None) -> FolderContent:
+    def folder_content(self, uuid: ItemId | None = None) -> FolderContent:
         """Retrieve folder content with metadata decryption"""
 
         uuid = uuid if uuid else self._ensure_base_folder_uuid()
@@ -81,7 +81,7 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
     async def base_folder(self) -> UUID:
         return await self._ensure_base_folder_uuid()
 
-    async def folder_info(self, uuid: _ID | None = None) -> FolderInfo:
+    async def folder_info(self, uuid: ItemId | None = None) -> FolderInfo:
         uuid = uuid if uuid else (await self._ensure_base_folder_uuid())
         folder_info = (await self._api.dir.info(FolderUUIDRequestData(uuid=uuid))).data
 
@@ -92,7 +92,7 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
 
         return folder_info
 
-    async def folder_content(self, uuid: _ID | None = None) -> FolderContent:
+    async def folder_content(self, uuid: ItemId | None = None) -> FolderContent:
         uuid = uuid if uuid else (await self._ensure_base_folder_uuid())
         folder_content = (await self._api.dir.content(FolderUUIDRequestData(uuid=uuid))).data
 

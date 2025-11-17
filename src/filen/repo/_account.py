@@ -44,7 +44,10 @@ class AccountMixIn:
 
 
 class Account(RepoBase, AccountMixIn):
-    """Account repository"""
+    """Account repository
+
+    Provides methods for authentication and managing user account.
+    """
 
     def auth_info(self, email: str) -> AuthInfo:
         auth_info = self._api.auth.info(AuthInfoRequestData(email=email))
