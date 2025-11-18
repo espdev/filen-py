@@ -6,6 +6,7 @@ from functools import cached_property
 from secrets import token_bytes, token_hex
 
 from cryptography.hazmat.primitives.ciphers import Cipher
+from pydantic import BaseModel, ValidationError
 
 from filen.errors import (
     FilenError,
@@ -237,3 +238,13 @@ def decrypt_metadata(metadata: str, keys: str | list[str]) -> str:
                 raise MetadataDecryptErrorGroup('Metadata decryption failed for all provided keys.', errors)
 
     raise MetadataEncryptionVersionError('Unsupported metadata encryption version.')
+
+
+def decrypt_metadata_model[T: BaseModel](model: Type[T], metadata: str, keys: str | list[str]) -> T:
+    """Decrypt metadata with model validation"""
+
+    metadata_json = decrypt_metadata(metadata, keys)
+    try:
+        return model.model_validate_json(metadata_json)
+    except ValidationError as err:
+        raise MetadataDecryptError(f'Metadata decryption failed due to {model.__name__} validation errors:\n{err}')

@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from filen.api.models.dir import (
-    BASE_FOLDER_NAME,
+    BASE_NAME,
     FileMetadata,
     FolderContent,
     FolderContentRequestData,
@@ -12,7 +12,7 @@ from filen.api.models.dir import (
     FolderMetadata,
     FolderUUIDRequestData,
 )
-from filen.crypto import decrypt_metadata
+from filen.crypto import decrypt_metadata_model
 
 from ._base import AsyncRepoBase, RepoBase
 
@@ -21,6 +21,14 @@ type ItemId = UUID | str
 
 class StorageMixIn:
     @staticmethod
+    def _decrypt_file_metadata(metadata: str, keys: str | list[str]) -> FileMetadata:
+        return decrypt_metadata_model(FileMetadata, metadata, keys)
+
+    @staticmethod
+    def _decrypt_folder_metadata(metadata: str, keys: str | list[str]) -> FolderMetadata:
+        return decrypt_metadata_model(FolderMetadata, metadata, keys)
+
+    @staticmethod
     def _collect_decrypted_metadata[T: FolderContent | FolderDownload](
         folder_items: T,
         decryption_results: dict[tuple[FolderItem, int], str],
@@ -28,9 +36,9 @@ class StorageMixIn:
         for (t, i), metadata in decryption_results.items():
             match t:
                 case FolderItem.file:
-                    folder_items.files[i].metadata = FileMetadata.model_validate_json(metadata)
+                    folder_items.files[i].metadata = metadata
                 case FolderItem.folder:
-                    folder_items.folders[i].metadata = FolderMetadata.model_validate_json(metadata)
+                    folder_items.folders[i].metadata = metadata
         return folder_items
 
 
@@ -53,11 +61,10 @@ class Storage(RepoBase, StorageMixIn):
 
         if uuid != self._context.base_folder_uuid:
             master_keys = self._ensure_master_keys()
-            metadata_json = decrypt_metadata(folder_info.metadata, master_keys)
-            folder_info.metadata = FolderMetadata.model_validate_json(metadata_json)
+            folder_info.metadata = self._decrypt_folder_metadata(folder_info.metadata, master_keys)
         else:
-            folder_info.metadata = FolderMetadata(name=BASE_FOLDER_NAME)
-            folder_info.name_hashed = BASE_FOLDER_NAME
+            folder_info.metadata = FolderMetadata(name=BASE_NAME)
+            folder_info.name_hashed = BASE_NAME
 
         return folder_info
 
@@ -71,10 +78,10 @@ class Storage(RepoBase, StorageMixIn):
 
         with self._runner.task_group() as tg:
             for i, file in enumerate(folder_content.files):
-                tg.add_task((FolderItem.file, i), decrypt_metadata, file.metadata, master_keys)
+                tg.add_task((FolderItem.file, i), self._decrypt_file_metadata, file.metadata, master_keys)
 
             for i, folder in enumerate(folder_content.folders):
-                tg.add_task((FolderItem.folder, i), decrypt_metadata, folder.metadata, master_keys)
+                tg.add_task((FolderItem.folder, i), self._decrypt_folder_metadata, folder.metadata, master_keys)
 
         return self._collect_decrypted_metadata(folder_content, tg.results)
 
@@ -88,10 +95,10 @@ class Storage(RepoBase, StorageMixIn):
 
         with self._runner.task_group() as tg:
             for i, file in enumerate(folder_download.files):
-                tg.add_task((FolderItem.file, i), decrypt_metadata, file.metadata, master_keys)
+                tg.add_task((FolderItem.file, i), self._decrypt_file_metadata, file.metadata, master_keys)
 
             for i, folder in enumerate(folder_download.folders):
-                tg.add_task((FolderItem.folder, i), decrypt_metadata, folder.metadata, master_keys)
+                tg.add_task((FolderItem.folder, i), self._decrypt_folder_metadata, folder.metadata, master_keys)
 
         return self._collect_decrypted_metadata(folder_download, tg.results)
 
@@ -108,11 +115,11 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
 
         if uuid != self._context.base_folder_uuid:
             master_keys = await self._ensure_master_keys()
-            metadata_json = await self._runner.run_sync(decrypt_metadata, folder_info.metadata, master_keys)
-            folder_info.metadata = FolderMetadata.model_validate_json(metadata_json)
+            metadata = await self._runner.run_sync(self._decrypt_folder_metadata, folder_info.metadata, master_keys)
+            folder_info.metadata = metadata
         else:
-            folder_info.metadata = FolderMetadata(name=BASE_FOLDER_NAME)
-            folder_info.name_hashed = BASE_FOLDER_NAME
+            folder_info.metadata = FolderMetadata(name=BASE_NAME)
+            folder_info.name_hashed = BASE_NAME
 
         return folder_info
 
@@ -124,10 +131,10 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
 
         async with self._runner.task_group() as tg:
             for i, file in enumerate(folder_content.files):
-                tg.add_task((FolderItem.file, i), decrypt_metadata, file.metadata, master_keys)
+                tg.add_task((FolderItem.file, i), self._decrypt_file_metadata, file.metadata, master_keys)
 
             for i, folder in enumerate(folder_content.folders):
-                tg.add_task((FolderItem.folder, i), decrypt_metadata, folder.metadata, master_keys)
+                tg.add_task((FolderItem.folder, i), self._decrypt_folder_metadata, folder.metadata, master_keys)
 
         return self._collect_decrypted_metadata(folder_content, tg.results)
 
@@ -139,9 +146,9 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
 
         async with self._runner.task_group() as tg:
             for i, file in enumerate(folder_download.files):
-                tg.add_task((FolderItem.file, i), decrypt_metadata, file.metadata, master_keys)
+                tg.add_task((FolderItem.file, i), self._decrypt_file_metadata, file.metadata, master_keys)
 
             for i, folder in enumerate(folder_download.folders):
-                tg.add_task((FolderItem.folder, i), decrypt_metadata, folder.metadata, master_keys)
+                tg.add_task((FolderItem.folder, i), self._decrypt_folder_metadata, folder.metadata, master_keys)
 
         return self._collect_decrypted_metadata(folder_download, tg.results)

@@ -2,11 +2,11 @@ from typing import Annotated, Final
 from enum import Enum, StrEnum, auto
 from uuid import UUID
 
-from pydantic import AliasChoices, Field, field_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 
 from .base import RequestData, ResponseData, ValidationAliasedModel
 
-BASE_FOLDER_NAME: Final = 'base'
+BASE_NAME: Final = 'base'
 
 
 class FileEncryptionVersion(float, Enum):
@@ -28,6 +28,14 @@ class FolderContentType(StrEnum):
     trash = auto()
 
 
+class FolderUUIDRequestData(RequestData):
+    uuid: UUID
+
+
+class FolderContentRequestData(RequestData):
+    uuid: UUID | FolderContentType
+
+
 class FileMetadata(ValidationAliasedModel):
     """Decrypted file metadata"""
 
@@ -44,76 +52,58 @@ class FolderMetadata(ValidationAliasedModel):
     name: str
 
 
-class FolderUUIDRequestData(RequestData):
-    uuid: UUID
-
-
-class FolderContentRequestData(RequestData):
-    uuid: UUID | FolderContentType
-
-
-class ItemInfo(ValidationAliasedModel):
+class StorageItemInfo[TMetadata: FileMetadata | FolderMetadata](ValidationAliasedModel):
     uuid: UUID
     parent: UUID | None
+    metadata: Annotated[str | TMetadata, Field(validation_alias=AliasChoices('metadata', 'name', 'nameEncrypted'))]
+    name_hashed: str | None = None
     favorited: bool
+    trash: bool = False
     timestamp: int
+    trash_timestamp: Annotated[
+        int | None,
+        Field(validation_alias=AliasChoices('trashTimestamp', 'trash_timestamp')),
+    ] = None
 
     @field_validator('parent', mode='before')
     @classmethod
     def _validate_parent(cls, v) -> UUID | None:
-        if v == BASE_FOLDER_NAME:
+        if v == BASE_NAME:
             return None
         return v
 
+    @model_validator(mode='after')
+    def _validate_item(self):
+        if self.trash_timestamp:
+            self.trash = True
+        return self
 
-class FileInfo(ItemInfo):
+
+class FileInfo(StorageItemInfo[FileMetadata]):
     bucket: str
     region: str
-    metadata: str | FileMetadata
-    name_hashed: str
-    version: FileEncryptionVersion
     chunks: int
-    chunks_size: int
-    trash: bool = False
+    chunks_size: int | None = None
+    rm: str | None = None
+    version: FileEncryptionVersion
 
 
-class FolderInfo(ItemInfo):
-    metadata: Annotated[str | FolderMetadata, Field(validation_alias=AliasChoices('nameEncrypted', 'name'))]
-    name_hashed: str
+class FolderInfo(StorageItemInfo[FolderMetadata]):
     color: str | None
-    trash: bool = False
+    is_sync: Annotated[bool | None, Field(validation_alias=AliasChoices('isSync', 'is_sync'))] = None
+    is_default: Annotated[bool | None, Field(validation_alias=AliasChoices('isDefault', 'is_default'))] = None
+    trash_parent: Annotated[
+        int | None,
+        Field(validation_alias=AliasChoices('trashParent', 'trash_parent')),
+    ] = None
 
 
 class FolderInfoResponseData(ResponseData[FolderInfo]): ...
 
 
-class File(ItemInfo):
-    uuid: UUID
-    parent: UUID | None
-    metadata: str | FileMetadata
-    favorited: bool
-    version: FileEncryptionVersion
-    rm: str
-    region: str
-    bucket: str
-    size: int
-    chunks: int
-    timestamp: int
-    trash_timestamp: int | None = None
-
-
-class Folder(ItemInfo):
-    metadata: Annotated[str | FolderMetadata, Field(validation_alias='name')]
-    color: str | None
-    is_sync: bool | None = None
-    is_default: bool | None = None
-    trash_parent: int | None = None
-    trash_timestamp: int | None = None
-
-
 class FolderContent(ValidationAliasedModel):
-    files: Annotated[list[File], Field(validation_alias='uploads')]
-    folders: list[Folder]
+    files: Annotated[list[FileInfo], Field(validation_alias='uploads')]
+    folders: list[FolderInfo]
 
 
 class FolderContentResponseData(ResponseData[FolderContent]): ...
