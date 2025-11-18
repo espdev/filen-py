@@ -3,6 +3,7 @@ from secrets import token_bytes
 from cryptography.hazmat.primitives import serialization
 import pytest
 
+from filen.config import AuthVersion
 from filen.crypto import (
     MetadataEncryptionVersion,
     create_der_keypair,
@@ -14,7 +15,9 @@ from filen.crypto import (
     encrypt_content,
     encrypt_master_keys,
     encrypt_metadata,
+    generate_hmac_key,
     generate_private_key,
+    hash_name,
     keypair_der_to_pem,
     metadata_ciphers,
 )
@@ -178,3 +181,47 @@ def test_keypair_der_to_pem():
 
     assert private_key.private_numbers() == private_key_from_pem.private_numbers()
     assert private_key.public_key().public_numbers() == public_key_from_pem.public_numbers()
+
+
+@pytest.mark.parametrize(
+    'name, name_hashed',
+    [
+        ('Backup', 'bee4407adc7501da1a6facafe587fe30aada4bff'),
+        ('Docs', '455f3194ec552fbc452397fc4d6676427fe1bb96'),
+        ('Temp', 'c6392de62a260845105a4d76095bfa656a37203b'),
+    ],
+)
+def test_hash_name_auth_v1_v2(name, name_hashed):
+    assert hash_name(name, AuthVersion.v2) == name_hashed
+
+
+@pytest.mark.parametrize(
+    'name, name_hashed',
+    [
+        ('Backup', '9a4673b0aa883dfc1ba5d1271a0c6c08386840f1eddd694d01074b583f882a13'),
+        ('Docs', 'ea420534ff14e752bb46ab065e238b5fcf2a33e9910636b9419e6ec3898e814c'),
+        ('Temp', '346671e0baa4f063eb6496680383f3a6e4c0f3ef83cff2383e9ed384746fae2c'),
+    ],
+)
+def test_hash_name_auth_v3(name, name_hashed):
+    private_key = (
+        'MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCXPshFForAMLkuX4BrjqnZK3bcAQJwdv/xzXFETGuxR/eE2aC7j5zSQjiFuA'
+        '9OADZVPePjTphwSMfngIHwuA/lGKPpJf6lnjBnLZ+6mmrRJdDYNDhRz/r8xw71OB+e4e9MJBag2ke5WJWf/c4ypsaBiHsp96aImqjZQA8O8bpE'
+        'nXy62QpWgxm87TatXnPVz6kqjBjvg9lmBUZT2ZScb42SqkhRzEOuN7jYnqgAqnmKcDdbMapzYKwVfhIX+qSRUZnJqG2cmUwZk2JJpz6Y2AjFth'
+        'bso/AbadHobOanp0F3s4dpP4PABIwzFN7Ok7dkrJzsu0hyEHX9X6s4fPeltE+JAgMBAAECggEAEKlgLyo/UVJcyCTJtS+jevLslmp/DgwyAH2Z'
+        'LYS8tWw/8pD2Acudo1UbvHFtMDLaSXQ2u3cQWIhQC2sPBYmFaL/Y6MmgfrbJTsiKKOizfURs+DByhuLCW+ADABU1eI+byNfN7Vz2m07MtvIjKd'
+        'XRFvqF1Pb9D9333W0O657KHh5O4pp8xyLsNaURk/RId0FymY/47PeiHxDSZ0JpXzhk+XFXZgtLNPYBwvjrn8odAq9RtkQRocNo3l5utUiZRni7'
+        'iXAqgrM4TyNGKCyO+heWpR1U8UPeUcKNkBGlAlLjHiNWAekI12n0SFm9ESfwPKrEt4pqIR8TExRVJdaGQAVVAQKBgQDT+kD8F2HnFjCwCET8x2'
+        'KB+bxoKuZK5KA1EHvIEvUtveNmS++U149dGb44NabRxlp5HuQgvV2CTAQQRdKj3YmSmMVrM9xRXunGjdIKYdGn2MDnMgEmnj1bFi3fDUQ61PSc'
+        'ujw0z/FkS0Uz3chczfpjFIZq+YwC9lopVVVm3HitgQKBgQC2p7TuiJwg25O/+KcrCEuPvTSxoUm9LeI39EGz1ezu5LaK0TnrpjkQjFVUlIh2bI'
+        '2mI31mwUuk5/OAkVqt7mcKXgbeUT0pKrUxV8wfDMPiyxQD8Ygy/9nTdeoRoUmBw4UNcRenCSatdQy4kbZ2v2bxeNrALlKR/qpfGwWX6V02CQKB'
+        'gDmHPz+rMNzAPvJnLCHWErvnhORYUCufJIOCN7Wyv2tsj1xh22Fvpu7DX8ZteRqRVFhus8bW3ZvQ+YFZEbN7Giz43QsdBfvnYFaMgqZiqb19q8'
+        'yS25EZfNlNiaFxPkUhKkmmmVRT4tUvQFa1J/1XwU5GcbxygTcEmK+DAyxpRS8BAoGAOhoI3OPJvk36ptNC4dZmqteF3ocuvKXO0vu4tqrzDl7k'
+        'ji3V3dbnShNJxXjmG72WJWYeqsQL+u3psFkMXk16q3qTdr6i1OiH8KU8Ahh+azMsL8DyET7/nFti1K7YghWeylLSMkkf64dTP5biUs25wlAuTX'
+        'muvFAlA9HFqrgJ9XkCgYEAxnVrZToQJ/xTc5J2+ClKK8sc6mYDH7RisdVqt8YGlKAzau7ZYlvTuNzOlfQltEId42CI02po898nvSP383MAdHir'
+        'p5XckLLdXLSKbhLE0rD6EvX8PpgdPeoeULM4qcNspg6q5JV0fla2DkWZ7LHO3iHukk/r6UsQgWLZU1b5e0E='
+    )
+    hmac_key = generate_hmac_key(private_key)
+
+    assert len(hmac_key) == 32
+    assert hash_name(name, AuthVersion.v3, hmac_key) == name_hashed

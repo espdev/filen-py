@@ -1,4 +1,5 @@
 from ._content import decrypt_content, encrypt_content
+from ._hash import generate_hmac_key, hash_name
 from ._keypair import KeyPair, create_der_keypair, generate_private_key, keypair_der_to_pem
 from ._masterkey import (
     DerivedInfo,
@@ -36,4 +37,6 @@ __all__ = [
     'generate_private_key',
     'create_der_keypair',
     'keypair_der_to_pem',
+    'hash_name',
+    'generate_hmac_key',
 ]

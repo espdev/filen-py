@@ -1,10 +1,17 @@
 from typing import Final
+from enum import IntEnum
 
 from pydantic import EmailStr, HttpUrl, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 FILEN_API_URL: Final = 'https://gateway.filen.io/v3'
 DEFAULT_REQUEST_TIMEOUT: Final = 15.0  # sec
+
+
+class AuthVersion(IntEnum):
+    v1 = 1
+    v2 = 2
+    v3 = 3
 
 
 class FilenConfig(BaseSettings):
