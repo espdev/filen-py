@@ -45,7 +45,15 @@ class APIGenericBase[TClient: Client | AsyncClient]:
         return headers
 
 
-class APIBase(APIGenericBase[Client]):
+class APIFactoryMixIn:
+    _context: 'Context'
+    _http_client: Client | AsyncClient
+
+    def _create_api[T: APIGenericBase](self, api_type: Type[T]) -> T:
+        return api_type(context=self._context, http_client=self._http_client)
+
+
+class APIBase(APIGenericBase[Client], APIFactoryMixIn):
     """Base class for all sync APIs"""
 
     def _post[TResponse: ResponseData](
@@ -78,7 +86,7 @@ class APIBase(APIGenericBase[Client]):
             return response_model.from_response(r)
 
 
-class AsyncAPIBase(APIGenericBase[AsyncClient]):
+class AsyncAPIBase(APIGenericBase[AsyncClient], APIFactoryMixIn):
     """Base class for all async APIs"""
 
     async def _post[TResponse: ResponseData](
@@ -124,9 +132,6 @@ class FilenAPIGenericBase[TClient: Client | AsyncClient, TAPI: APIBase | AsyncAP
     def is_closed(self) -> bool:
         return self._http_client.is_closed  # noqa
 
-    def _create_api(self, api_type: Type[TAPI]) -> TAPI:
-        return api_type(context=self._context, http_client=self._http_client)
-
 
 class APIDescriptor:
     """Descriptor class initializes and caches API instances in sync/async Filen API facades"""
@@ -137,16 +142,16 @@ class APIDescriptor:
 
     def __get__(
         self,
-        filen_api: FilenAPIGenericBase | None,
-        filen_api_type: Type[FilenAPIGenericBase] | None = None,
+        owner: APIFactoryMixIn | None,
+        owner_type: Type[APIFactoryMixIn] | None = None,
     ) -> APIBase | AsyncAPIBase | Self:
-        if filen_api is None:
+        if owner is None:
             return self
 
-        _id = id(filen_api)
+        _id = id(owner)
 
         if _id not in self._apis:
-            self._apis[_id] = filen_api._create_api(self._api_type)  # noqa
+            self._apis[_id] = owner._create_api(self._api_type)  # noqa
 
         return self._apis[_id]
 

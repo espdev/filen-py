@@ -1,3 +1,4 @@
+from typing import Self, Type
 from uuid import UUID
 
 from filen._context import Context
@@ -8,10 +9,10 @@ from filen.crypto import decrypt_master_keys, decrypt_metadata, derive_master_ke
 from filen.runners import AsyncRunnerBase, RunnerBase
 
 
-class RepoGenericBase[TFilenAPI: FilenAPI | AsyncFilenAPI, TRunner: RunnerBase | AsyncRunnerBase]:
+class RepoGenericBase[TAPI: FilenAPI | AsyncFilenAPI, TRunner: RunnerBase | AsyncRunnerBase]:
     """Base generic class for all sync/async repository classes"""
 
-    def __init__(self, context: Context, api: TFilenAPI, runner: TRunner) -> None:
+    def __init__(self, context: Context, api: TAPI, runner: TRunner) -> None:
         self._context = context
         self._api = api
         self._runner = runner
@@ -19,6 +20,15 @@ class RepoGenericBase[TFilenAPI: FilenAPI | AsyncFilenAPI, TRunner: RunnerBase |
     @property
     def is_closed(self) -> bool:
         return self._api.is_closed  # noqa
+
+
+class RepoFactoryMixIn:
+    _context: Context
+    _api: FilenAPI | AsyncFilenAPI
+    _runner: RunnerBase | AsyncRunnerBase
+
+    def _create_repo[TRepo: RepoGenericBase](self, repo_type: Type[TRepo]) -> TRepo:
+        return repo_type(context=self._context, api=self._api, runner=self._runner)
 
 
 class EnsureContextMixIn:
@@ -85,7 +95,7 @@ class EnsureContextMixIn:
         self._ensure_base_folder_uuid()
 
 
-class RepoBase(RepoGenericBase[FilenAPI, RunnerBase], EnsureContextMixIn):
+class RepoBase(RepoGenericBase[FilenAPI, RunnerBase], EnsureContextMixIn, RepoFactoryMixIn):
     """Repository base class for all sync repository classes"""
 
 
@@ -155,5 +165,32 @@ class AsyncEnsureContextMixIn:
         await self._ensure_base_folder_uuid()
 
 
-class AsyncRepoBase(RepoGenericBase[AsyncFilenAPI, AsyncRunnerBase], AsyncEnsureContextMixIn):
+class AsyncRepoBase(RepoGenericBase[AsyncFilenAPI, AsyncRunnerBase], AsyncEnsureContextMixIn, RepoFactoryMixIn):
     """Repository base class for all async repository classes"""
+
+
+class RepoDescriptor:
+    """Descriptor initializes and caches repository instances in Filen client sync/async classes."""
+
+    def __init__(self, repo_type: Type[RepoBase | AsyncRepoBase]) -> None:
+        self._repo_type = repo_type
+        self._repos: dict[int, RepoBase | AsyncRepoBase] = {}
+
+    def __get__(
+        self,
+        owner: RepoFactoryMixIn,
+        owner_type: Type[RepoFactoryMixIn] = None,
+    ) -> RepoBase | AsyncRepoBase | Self:
+        if owner is None:
+            return self
+
+        # The descriptor can be used with several client instances
+        _id = id(owner)
+
+        if _id not in self._repos:
+            self._repos[_id] = owner._create_repo(self._repo_type)  # noqa
+
+        return self._repos[_id]
+
+
+repo = RepoDescriptor

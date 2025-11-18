@@ -6,7 +6,7 @@ from httpx import AsyncClient, Client, Timeout
 from filen._context import Context
 from filen.api import AsyncFilenAPI, FilenAPI
 from filen.config import FilenConfig
-from filen.repo import AsyncEnsureContextMixIn, AsyncRepoBase, EnsureContextMixIn, RepoBase
+from filen.repo import AsyncEnsureContextMixIn, AsyncRepoBase, EnsureContextMixIn, RepoBase, RepoFactoryMixIn
 from filen.runners import AsyncRunnerBase, AsyncThreadRunner, RunnerBase, ThreadRunner
 
 
@@ -69,7 +69,11 @@ class FilenClientGenericBase[
         return repo_type(context=self._context, api=self._api, runner=self._runner)
 
 
-class FilenClientBase(FilenClientGenericBase[Client, FilenAPI, RepoBase, RunnerBase], EnsureContextMixIn):
+class FilenClientBase(
+    FilenClientGenericBase[Client, FilenAPI, RepoBase, RunnerBase],
+    EnsureContextMixIn,
+    RepoFactoryMixIn,
+):
     """Base class for Filen sync clients"""
 
     def ensure_context(self):
@@ -98,7 +102,9 @@ class FilenClientBase(FilenClientGenericBase[Client, FilenAPI, RepoBase, RunnerB
 
 
 class AsyncFilenClientBase(
-    FilenClientGenericBase[AsyncClient, AsyncFilenAPI, AsyncRepoBase, AsyncRunnerBase], AsyncEnsureContextMixIn
+    FilenClientGenericBase[AsyncClient, AsyncFilenAPI, AsyncRepoBase, AsyncRunnerBase],
+    AsyncEnsureContextMixIn,
+    RepoFactoryMixIn,
 ):
     """Base class for Filen async clients"""
 
@@ -123,30 +129,3 @@ class AsyncFilenClientBase(
         if self._owns_http_client:
             return await self._http_client.__aexit__(exc_type, exc_val, exc_tb)
         return None
-
-
-class RepoDescriptor:
-    """Descriptor initializes and caches repository instances in Filen client sync/async classes."""
-
-    def __init__(self, repo_type: Type[RepoBase | AsyncRepoBase]) -> None:
-        self._repo_type = repo_type
-        self._repos: dict[int, RepoBase | AsyncRepoBase] = {}
-
-    def __get__(
-        self,
-        client: FilenClientGenericBase | None,
-        client_type: Type[FilenClientGenericBase] | None = None,
-    ) -> RepoBase | AsyncRepoBase | Self:
-        if client is None:
-            return self
-
-        # The descriptor can be used with several client instances
-        _id = id(client)
-
-        if _id not in self._repos:
-            self._repos[_id] = client._create_repo(self._repo_type)  # noqa
-
-        return self._repos[_id]
-
-
-repo = RepoDescriptor
