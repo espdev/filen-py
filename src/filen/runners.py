@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 import asyncio
 from collections.abc import Hashable
 from concurrent.futures import Executor, ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+import time
 
 try:
     from concurrent.futures import InterpreterPoolExecutor
@@ -21,6 +22,8 @@ from uuid import UUID
 from anyio import CancelScope, create_task_group, to_interpreter, to_process, to_thread
 from anyio.abc import TaskGroup as AnyIOTaskGroup
 
+from filen._log import logger
+
 type TaskId = str | int | UUID | Hashable | tuple[Hashable, ...]
 
 
@@ -32,6 +35,7 @@ class TaskGroup:
         self._exception_in_result = exception_in_result
         self._tasks = {}
         self._results = {}
+        self._ts = 0
 
     @property
     def results(self) -> dict[TaskId, Any]:
@@ -54,11 +58,13 @@ class TaskGroup:
         self._tasks[task] = task_id
 
     def __enter__(self) -> Self:
+        self._ts = time.monotonic()
         self._results.clear()
         self._tasks.clear()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> bool | None:
+        task_count = len(self._results)
         excs = []
 
         for task in as_completed(self._tasks):
@@ -75,6 +81,9 @@ class TaskGroup:
         if excs:
             self._results.clear()
             raise ExceptionGroup('unhandled errors in a TaskGroup', excs)
+        else:
+            took = time.monotonic() - self._ts
+            logger.debug('All tasks (%d) in the task group have been completed (took: %.4fs)', task_count, took)
 
 
 class AsyncTaskGroup:
@@ -86,6 +95,7 @@ class AsyncTaskGroup:
         self._exception_in_result = exception_in_result
         self._tg: AnyIOTaskGroup | None = None
         self._results = {}
+        self._ts = 0
 
     @property
     def results(self) -> dict[TaskId, Any]:
@@ -132,23 +142,26 @@ class AsyncTaskGroup:
         self._tg.start_soon(afunc, *args, name=name)
 
     async def __aenter__(self) -> Self:
+        self._ts = time.monotonic()
         self._results.clear()
         self._tg = create_task_group()
-
         await self._tg.__aenter__()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> bool | None:
+        task_count = len(self._results)
         try:
-            res = await self._tg.__aexit__(exc_type, exc_val, exc_tb)
+            await self._tg.__aexit__(exc_type, exc_val, exc_tb)
             if self._tg.cancel_scope.cancelled_caught:
                 self._results.clear()
             self._tg = None
-            return res
         except Exception:
             if not self._exception_in_result:
                 self._results.clear()
             raise
+        else:
+            took = time.monotonic() - self._ts
+            logger.debug('All tasks (%d) in the task group have been completed (took: %.4fs)', task_count, took)
 
 
 class AbstractRunner[TTaskGroup: TaskGroup | AsyncTaskGroup](ABC):
