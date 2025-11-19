@@ -15,6 +15,7 @@ from ._metadata import (
     decrypt_metadata,
     decrypt_metadata_model,
     encrypt_metadata,
+    encrypt_metadata_model,
     metadata_ciphers,
 )
 
@@ -31,6 +32,7 @@ __all__ = [
     'metadata_ciphers',
     'encrypt_metadata',
     'decrypt_metadata',
+    'encrypt_metadata_model',
     'decrypt_metadata_model',
     'encrypt_content',
     'decrypt_content',

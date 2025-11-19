@@ -240,6 +240,17 @@ def decrypt_metadata(metadata: str, keys: str | list[str]) -> str:
     raise MetadataEncryptionVersionError('Unsupported metadata encryption version.')
 
 
+def encrypt_metadata_model(
+    metadata: BaseModel,
+    key: str,
+    encryption_version: MetadataEncryptionVersion = current_metadata_encryption_version,
+) -> str:
+    """Encrypt data model as JSON metadata"""
+
+    metadata_json = metadata.model_dump_json()
+    return encrypt_metadata(metadata_json, key, encryption_version)
+
+
 def decrypt_metadata_model[T: BaseModel](model: Type[T], metadata: str, keys: str | list[str]) -> T:
     """Decrypt metadata with model validation"""
 

@@ -1,6 +1,7 @@
 from secrets import token_bytes
 
 from cryptography.hazmat.primitives import serialization
+from pydantic import BaseModel
 import pytest
 
 from filen.config import AuthVersion
@@ -11,10 +12,12 @@ from filen.crypto import (
     decrypt_content,
     decrypt_master_keys,
     decrypt_metadata,
+    decrypt_metadata_model,
     derive_master_key_and_hashed_password,
     encrypt_content,
     encrypt_master_keys,
     encrypt_metadata,
+    encrypt_metadata_model,
     generate_hmac_key,
     generate_private_key,
     hash_name,
@@ -96,6 +99,17 @@ def test_encrypt_decrypt_metadata():
     assert decrypt_metadata(encrypt_metadata(metadata, key1), [key1, key2, key3]) == metadata
     assert decrypt_metadata(encrypt_metadata(metadata, key2), [key1, key2, key3]) == metadata
     assert decrypt_metadata(encrypt_metadata(metadata, key3), [key1, key2, key3]) == metadata
+
+
+def test_encrypt_decrypt_metadata_model():
+    key = 'd899ab9d9032c49ff39428964607db67225e338612059776447715d37586eba3'
+
+    class Model(BaseModel):
+        foo: int
+        bar: str
+
+    model = Model(foo=1, bar='hello')
+    assert decrypt_metadata_model(Model, encrypt_metadata_model(model, key), key) == model
 
 
 def test_decrypt_metadata_error():
