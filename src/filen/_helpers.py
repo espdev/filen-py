@@ -15,13 +15,13 @@ class FactoryDescriptor[T]:
 
     def __get__(
         self,
-        owner: FactoryProtocol[T],
-        owner_type: Type[FactoryProtocol[T]] = None,
+        owner: FactoryProtocol[T] | None,
+        owner_type: Type[FactoryProtocol[T]] | None = None,
     ) -> T | Self:
         if owner is None:
             return self
 
-        # The descriptor can be used with several client instances
+        # The descriptor can be used with several owner instances
         _id = id(owner)
 
         if _id not in self._objects:
