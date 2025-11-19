@@ -28,7 +28,7 @@ NAME_MAX_LEN: Final = 255
 
 class StorageMixIn:
     @staticmethod
-    def _check_name(name: str) -> None:
+    def check_name(name: str) -> None:
         try:
             if not name:
                 raise ValueError('empty name')
@@ -130,7 +130,7 @@ class Storage(RepoBase, StorageMixIn):
     def create_folder(self, name: str, parent: UUID | None = None) -> FolderCreated:
         """Create a new folder in the cloud storage"""
 
-        self._check_name(name)
+        self.check_name(name)
         metadata = FolderMetadata(name=name)
 
         master_key = self._ensure_master_key()
@@ -204,7 +204,7 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
         return self._collect_decrypted_metadata(folder_download, tg.results)
 
     async def create_folder(self, name: str, parent: UUID | None = None) -> FolderCreated:
-        self._check_name(name)
+        self.check_name(name)
         metadata = FolderMetadata(name=name)
 
         master_key = await self._ensure_master_key()

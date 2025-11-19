@@ -6,6 +6,7 @@ Repositories implement functionality for interacting with Filen service on high-
 
 from ._account import Account, AsyncAccount
 from ._base import AsyncEnsureContextMixIn, AsyncRepoBase, EnsureContextMixIn, RepoBase, RepoFactoryMixIn, repo
+from ._fs import FS, AsyncFS
 from ._storage import AsyncStorage, Storage
 
 __all__ = [
@@ -19,4 +20,6 @@ __all__ = [
     'AsyncAccount',
     'Storage',
     'AsyncStorage',
+    'FS',
+    'AsyncFS',
 ]

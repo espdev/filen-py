@@ -5,9 +5,9 @@ from filen.api.models.auth import NO_2FA_CODE_PLACEHOLDER
 from filen.config import FilenConfig
 
 __all__ = [
+    'logger',
+    'NO_2FA_CODE_PLACEHOLDER',
     'FilenConfig',
     'FilenClient',
     'AsyncFilenClient',
-    'NO_2FA_CODE_PLACEHOLDER',
-    'logger',
 ]
