@@ -1,9 +1,10 @@
-from typing import Self, Type
+from typing import Type
 from enum import StrEnum
 
 from httpx import AsyncClient, Client
 
 from filen._context import Context
+from filen._helpers import FactoryDescriptor
 from filen._log import debug_log_api_request, debug_log_api_response
 from filen.errors import APIKeyRequiredError, RequestErrorHandler
 
@@ -47,7 +48,7 @@ class APIFactoryMixIn:
     _context: Context
     _http_client: Client | AsyncClient
 
-    def _create_api[T: APIGenericBase](self, api_type: Type[T]) -> T:
+    def _create[T: APIGenericBase](self, api_type: Type[T]) -> T:
         return api_type(context=self._context, http_client=self._http_client)
 
 
@@ -131,27 +132,4 @@ class FilenAPIGenericBase[TClient: Client | AsyncClient, TAPI: APIBase | AsyncAP
         return self._http_client.is_closed  # noqa
 
 
-class APIDescriptor:
-    """Descriptor class initializes and caches API instances in sync/async Filen API facades"""
-
-    def __init__(self, api_type: Type[APIBase | AsyncAPIBase]) -> None:
-        self._api_type = api_type
-        self._apis: dict[int, APIBase | AsyncAPIBase] = {}
-
-    def __get__(
-        self,
-        owner: APIFactoryMixIn | None,
-        owner_type: Type[APIFactoryMixIn] | None = None,
-    ) -> APIBase | AsyncAPIBase | Self:
-        if owner is None:
-            return self
-
-        _id = id(owner)
-
-        if _id not in self._apis:
-            self._apis[_id] = owner._create_api(self._api_type)  # noqa
-
-        return self._apis[_id]
-
-
-api = APIDescriptor
+api = FactoryDescriptor[APIBase | AsyncAPIBase]

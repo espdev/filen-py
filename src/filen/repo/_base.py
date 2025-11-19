@@ -1,7 +1,8 @@
-from typing import Self, Type
+from typing import Type
 from uuid import UUID
 
 from filen._context import Context
+from filen._helpers import FactoryDescriptor
 from filen.api import AsyncFilenAPI, FilenAPI
 from filen.api.models.auth import AuthInfoRequestData
 from filen.api.models.user import UserKeyPair, UserMasterKeysRequestData
@@ -27,7 +28,7 @@ class RepoFactoryMixIn:
     _api: FilenAPI | AsyncFilenAPI
     _runner: RunnerBase | AsyncRunnerBase
 
-    def _create_repo[TRepo: RepoGenericBase](self, repo_type: Type[TRepo]) -> TRepo:
+    def _create[TRepo: RepoGenericBase](self, repo_type: Type[TRepo]) -> TRepo:
         return repo_type(context=self._context, api=self._api, runner=self._runner)
 
 
@@ -169,28 +170,4 @@ class AsyncRepoBase(RepoGenericBase[AsyncFilenAPI, AsyncRunnerBase], AsyncEnsure
     """Repository base class for all async repository classes"""
 
 
-class RepoDescriptor:
-    """Descriptor initializes and caches repository instances in Filen client sync/async classes."""
-
-    def __init__(self, repo_type: Type[RepoBase | AsyncRepoBase]) -> None:
-        self._repo_type = repo_type
-        self._repos: dict[int, RepoBase | AsyncRepoBase] = {}
-
-    def __get__(
-        self,
-        owner: RepoFactoryMixIn,
-        owner_type: Type[RepoFactoryMixIn] = None,
-    ) -> RepoBase | AsyncRepoBase | Self:
-        if owner is None:
-            return self
-
-        # The descriptor can be used with several client instances
-        _id = id(owner)
-
-        if _id not in self._repos:
-            self._repos[_id] = owner._create_repo(self._repo_type)  # noqa
-
-        return self._repos[_id]
-
-
-repo = RepoDescriptor
+repo = FactoryDescriptor[RepoBase | AsyncRepoBase]
