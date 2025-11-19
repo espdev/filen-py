@@ -1,6 +1,8 @@
 from filen.api.models.dir import (
     FolderContentRequestData,
     FolderContentResponseData,
+    FolderCreateRequestData,
+    FolderCreateResponseData,
     FolderDownloadResponseData,
     FolderInfoResponseData,
     FolderUUIDRequestData,
@@ -13,9 +15,12 @@ class DirEndpoint(APIEndpoint):
     info = '/dir'
     content = '/dir/content'
     download = '/dir/download'
+    create = '/dir/create'
 
 
 class DirAPI(APIBase):
+    """Dir API"""
+
     def info(self, data: FolderUUIDRequestData) -> FolderInfoResponseData:
         return self._post(DirEndpoint.info, data, FolderInfoResponseData)
 
@@ -25,8 +30,13 @@ class DirAPI(APIBase):
     def download(self, data: FolderUUIDRequestData) -> FolderDownloadResponseData:
         return self._post(DirEndpoint.download, data, FolderDownloadResponseData)
 
+    def create(self, data: FolderCreateRequestData) -> FolderCreateResponseData:
+        return self._post(DirEndpoint.create, data, FolderCreateResponseData)
+
 
 class AsyncDirAPI(AsyncAPIBase):
+    """Async Dir API"""
+
     async def info(self, data: FolderUUIDRequestData) -> FolderInfoResponseData:
         return await self._post(DirEndpoint.info, data, FolderInfoResponseData)
 
@@ -35,3 +45,6 @@ class AsyncDirAPI(AsyncAPIBase):
 
     async def download(self, data: FolderUUIDRequestData) -> FolderDownloadResponseData:
         return await self._post(DirEndpoint.download, data, FolderDownloadResponseData)
+
+    async def create(self, data: FolderCreateRequestData) -> FolderCreateResponseData:
+        return await self._post(DirEndpoint.create, data, FolderCreateResponseData)

@@ -2,7 +2,7 @@ from typing import Annotated, Final
 from enum import Enum, StrEnum, auto
 from uuid import UUID
 
-from pydantic import AliasChoices, Field, field_validator, model_validator
+from pydantic import AliasChoices, BaseModel, Field, computed_field, field_validator, model_validator
 
 from .base import RequestData, ResponseData, ValidationAliasedModel
 
@@ -26,6 +26,10 @@ class FolderContentType(StrEnum):
     recents = auto()
     links = auto()
     trash = auto()
+
+
+class FolderUUID(BaseModel):
+    uuid: UUID
 
 
 class FolderUUIDRequestData(RequestData):
@@ -115,3 +119,22 @@ class FolderDownload(ValidationAliasedModel):
 
 
 class FolderDownloadResponseData(ResponseData[FolderDownload]): ...
+
+
+class FolderCreateRequestData(RequestData):
+    uuid: UUID
+    name: str
+    name_hashed: str
+    parent: UUID
+
+
+class FolderCreated(ValidationAliasedModel):
+    uuid: UUID
+    timestamp: int = None
+
+    @computed_field
+    def created(self) -> bool:
+        return self.timestamp is not None
+
+
+class FolderCreateResponseData(ResponseData[FolderCreated]): ...

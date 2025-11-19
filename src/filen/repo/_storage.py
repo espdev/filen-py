@@ -1,4 +1,4 @@
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from filen.api.models.dir import (
     BASE_NAME,
@@ -6,13 +6,15 @@ from filen.api.models.dir import (
     FolderContent,
     FolderContentRequestData,
     FolderContentType,
+    FolderCreated,
+    FolderCreateRequestData,
     FolderDownload,
     FolderInfo,
     FolderItem,
     FolderMetadata,
     FolderUUIDRequestData,
 )
-from filen.crypto import decrypt_metadata_model
+from filen.crypto import decrypt_metadata_model, encrypt_metadata_model, hash_name
 
 from ._base import AsyncRepoBase, RepoBase
 
@@ -102,6 +104,30 @@ class Storage(RepoBase, StorageMixIn):
 
         return self._collect_decrypted_metadata(folder_download, tg.results)
 
+    def create_folder(self, name: str, parent: UUID | None = None) -> FolderCreated:
+        """Create a new folder in the cloud storage"""
+
+        metadata = FolderMetadata(name=name)
+
+        master_key = self._ensure_master_key()
+        if parent is None:
+            parent = self._ensure_base_folder_uuid()
+
+        with self._runner.task_group() as tg:
+            tg.add_task('metadata', encrypt_metadata_model, metadata, master_key)
+            tg.add_task('name_hashed', hash_name, name, self._context.auth_version)
+
+        metadata_enc = tg.results['metadata']
+        name_hashed = tg.results['name_hashed']
+
+        data = FolderCreateRequestData(
+            uuid=uuid4(),
+            name=metadata_enc,
+            name_hashed=name_hashed,
+            parent=parent,
+        )
+        return self._api.dir.create(data).data
+
 
 class AsyncStorage(AsyncRepoBase, StorageMixIn):
     """Async Storage repository"""
@@ -152,3 +178,25 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
                 tg.add_task((FolderItem.folder, i), self._decrypt_folder_metadata, folder.metadata, master_keys)
 
         return self._collect_decrypted_metadata(folder_download, tg.results)
+
+    async def create_folder(self, name: str, parent: UUID | None = None) -> FolderCreated:
+        metadata = FolderMetadata(name=name)
+
+        master_key = await self._ensure_master_key()
+        if parent is None:
+            parent = await self._ensure_base_folder_uuid()
+
+        async with self._runner.task_group() as tg:
+            tg.add_task('metadata', encrypt_metadata_model, metadata, master_key)
+            tg.add_task('name_hashed', hash_name, name, self._context.auth_version)
+
+        metadata_enc = tg.results['metadata']
+        name_hashed = tg.results['name_hashed']
+
+        data = FolderCreateRequestData(
+            uuid=uuid4(),
+            name=metadata_enc,
+            name_hashed=name_hashed,
+            parent=parent,
+        )
+        return (await self._api.dir.create(data)).data
