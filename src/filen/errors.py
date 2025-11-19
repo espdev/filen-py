@@ -68,6 +68,9 @@ class ContentEncryptError(EncryptError): ...
 class ContentDecryptError(DecryptError): ...
 
 
+class StorageError(FilenError): ...
+
+
 class FilenErrorCode(StrEnum):
     email_or_password_wrong = auto()
     enter_2fa = auto()

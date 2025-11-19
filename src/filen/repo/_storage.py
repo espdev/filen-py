@@ -1,3 +1,5 @@
+from typing import Final
+import os
 from uuid import UUID, uuid4
 
 from filen.api.models.dir import (
@@ -15,13 +17,34 @@ from filen.api.models.dir import (
     FolderUUIDRequestData,
 )
 from filen.crypto import decrypt_metadata_model, encrypt_metadata_model, hash_name
+from filen.errors import StorageError
 
 from ._base import AsyncRepoBase, RepoBase
 
 type ItemId = UUID | str
 
+NAME_MAX_LEN: Final = 255
+
 
 class StorageMixIn:
+    @staticmethod
+    def _check_name(name: str) -> None:
+        try:
+            if not name:
+                raise ValueError('empty name')
+            if name in ('.', '..'):
+                raise ValueError('. and .. not allowed')
+            if '/' in name or '\\' in name or '\0' in name:
+                raise ValueError('/, \\ and \\0 not allowed')
+            try:
+                max_len = os.pathconf('.', 'PC_NAME_MAX')
+            except (AttributeError, ValueError):
+                max_len = NAME_MAX_LEN
+            if (name_len := len(name.encode())) > max_len:
+                raise ValueError(f'name is too long in bytes ({name_len} > {max_len})')
+        except ValueError as err:
+            raise StorageError(f'Folder name {name!r} is not valid due to: {err}') from err
+
     @staticmethod
     def _decrypt_file_metadata(metadata: str, keys: str | list[str]) -> FileMetadata:
         return decrypt_metadata_model(FileMetadata, metadata, keys)
@@ -107,6 +130,7 @@ class Storage(RepoBase, StorageMixIn):
     def create_folder(self, name: str, parent: UUID | None = None) -> FolderCreated:
         """Create a new folder in the cloud storage"""
 
+        self._check_name(name)
         metadata = FolderMetadata(name=name)
 
         master_key = self._ensure_master_key()
@@ -180,6 +204,7 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
         return self._collect_decrypted_metadata(folder_download, tg.results)
 
     async def create_folder(self, name: str, parent: UUID | None = None) -> FolderCreated:
+        self._check_name(name)
         metadata = FolderMetadata(name=name)
 
         master_key = await self._ensure_master_key()
