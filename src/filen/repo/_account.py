@@ -5,11 +5,11 @@ from filen.api.models.auth import (
     NO_2FA_CODE_PLACEHOLDER,
     AuthInfo,
     AuthInfoRequestData,
-    AuthVersion,
     LoginRequestData,
     UserKeys,
 )
 from filen.api.models.user import UserInfo, UserKeyPair, UserSettings
+from filen.config import AuthVersion
 from filen.crypto import decrypt_master_keys, decrypt_metadata, derive_master_key_and_hashed_password
 from filen.errors import FilenError, RequestFailedError
 

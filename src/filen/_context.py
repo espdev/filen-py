@@ -2,8 +2,7 @@ from typing import NoReturn, Self
 from dataclasses import dataclass
 from uuid import UUID
 
-from filen.api.models.auth import AuthVersion
-from filen.config import FilenConfig
+from filen.config import AuthVersion, FilenConfig
 from filen.errors import InaccessibleKeysError
 
 

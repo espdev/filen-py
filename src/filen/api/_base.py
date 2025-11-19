@@ -1,16 +1,14 @@
-from typing import TYPE_CHECKING, Self, Type
+from typing import Self, Type
 from enum import StrEnum
 
 from httpx import AsyncClient, Client
 
+from filen._context import Context
 from filen._log import debug_log_api_request, debug_log_api_response
 from filen.errors import APIKeyRequiredError, RequestErrorHandler
 
 from .models.auth import RequestData
 from .models.base import ResponseData
-
-if TYPE_CHECKING:
-    from filen._context import Context
 
 
 class APIEndpoint(StrEnum):
@@ -20,7 +18,7 @@ class APIEndpoint(StrEnum):
 class APIGenericBase[TClient: Client | AsyncClient]:
     """Base generic class for all sync/async Filen APIs"""
 
-    def __init__(self, context: 'Context', http_client: TClient) -> None:
+    def __init__(self, context: Context, http_client: TClient) -> None:
         self._context = context
         self._http_client = http_client
         self._request_error_handler = RequestErrorHandler()
@@ -46,7 +44,7 @@ class APIGenericBase[TClient: Client | AsyncClient]:
 
 
 class APIFactoryMixIn:
-    _context: 'Context'
+    _context: Context
     _http_client: Client | AsyncClient
 
     def _create_api[T: APIGenericBase](self, api_type: Type[T]) -> T:
