@@ -22,7 +22,7 @@ from uuid import UUID
 from anyio import CancelScope, create_task_group, to_interpreter, to_process, to_thread
 from anyio.abc import TaskGroup as AnyIOTaskGroup
 
-from filen._log import logger
+from filen._logging import logger
 
 type TaskId = str | int | UUID | Hashable | tuple[Hashable, ...]
 

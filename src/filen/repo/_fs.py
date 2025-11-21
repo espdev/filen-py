@@ -1,7 +1,7 @@
 import re
 from uuid import UUID
 
-from filen._log import logger
+from filen._logging import logger
 
 from ._base import AsyncRepoBase, RepoBase, repo
 from ._storage import AsyncStorage, Storage

@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from filen._context import Context
 from filen._helpers import FactoryDescriptor
-from filen._log import debug_log_api_request, debug_log_api_response
+from filen._logging import debug_log_api_request, debug_log_api_response
 from filen.errors import APIKeyRequiredError, RequestErrorHandler
 
 
