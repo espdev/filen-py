@@ -23,7 +23,7 @@ master_key_pbkdf2hmac = partial(
 
 @dataclass
 class DerivedInfo:
-    password: str
+    hashed_password: str
     master_key: str
 
 
@@ -36,7 +36,7 @@ def derive_master_key_and_hashed_password(password: str, salt: str) -> DerivedIn
     split_index = len(key) // 2
 
     return DerivedInfo(
-        password=sha512(key[split_index:].encode()).hexdigest(),
+        hashed_password=sha512(key[split_index:].encode()).hexdigest(),
         master_key=key[:split_index],
     )
 

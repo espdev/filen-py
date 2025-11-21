@@ -63,7 +63,7 @@ class Account(RepoBase, AccountMixIn):
         login_info = self._api.v3.auth.login(
             LoginRequestData(
                 email=email,  # noqa
-                password=derived_info.password,
+                password=derived_info.hashed_password,
                 two_factor_code=two_factor_code or NO_2FA_CODE_PLACEHOLDER,
                 auth_version=auth_info.auth_version,
             ),
@@ -131,7 +131,7 @@ class AsyncAccount(AsyncRepoBase, AccountMixIn):
             await self._api.v3.auth.login(
                 LoginRequestData(
                     email=email,  # noqa
-                    password=derived_info.password,
+                    password=derived_info.hashed_password,
                     two_factor_code=two_factor_code or NO_2FA_CODE_PLACEHOLDER,
                     auth_version=auth_info.auth_version,
                 ),

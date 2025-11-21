@@ -38,7 +38,7 @@ def test_derive_password_and_master_key():
 
     res = derive_master_key_and_hashed_password(password, salt)
 
-    assert res.password == (
+    assert res.hashed_password == (
         '6391048cdfc0df0f933093f25ddb333cc7ea9363201f4e617b521227db88887f9e49904'
         '0472fd5aefdf6f8fbbf03e75eacf8e2dedd680089b858fcf0a00b635f'
     )
