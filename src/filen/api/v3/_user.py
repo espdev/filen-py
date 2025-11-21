@@ -1,4 +1,4 @@
-from ._base import APIBase, APIEndpoint, AsyncAPIBase
+from .._base import APIBase, APIEndpoint, AsyncAPIBase
 from .models.user import (
     UserBaseFolderResponseData,
     UserInfoResponseData,

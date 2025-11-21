@@ -1,4 +1,5 @@
-from filen.api.models.dir import (
+from .._base import APIBase, APIEndpoint, AsyncAPIBase
+from .models.dir import (
     FolderContentRequestData,
     FolderContentResponseData,
     FolderCreateRequestData,
@@ -7,8 +8,6 @@ from filen.api.models.dir import (
     FolderInfoResponseData,
     FolderUUIDRequestData,
 )
-
-from ._base import APIBase, APIEndpoint, AsyncAPIBase
 
 
 class DirEndpoint(APIEndpoint):

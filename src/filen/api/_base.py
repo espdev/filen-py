@@ -1,19 +1,30 @@
-from typing import Type
+from typing import Any, Self, Type
+from abc import ABC, abstractmethod
 from enum import StrEnum
 
-from httpx import AsyncClient, Client
+from httpx import AsyncClient, Client, Response
+from pydantic import BaseModel
 
 from filen._context import Context
 from filen._helpers import FactoryDescriptor
 from filen._log import debug_log_api_request, debug_log_api_response
 from filen.errors import APIKeyRequiredError, RequestErrorHandler
 
-from .models.auth import RequestData
-from .models.base import ResponseData
-
 
 class APIEndpoint(StrEnum):
     """Base enumeration class for all API endpoint enumerations"""
+
+
+class RequestModelBase(BaseModel):
+    def dump_for_payload(self) -> dict[str, Any]:
+        return self.model_dump(by_alias=True, mode='json')
+
+
+class ResponseModelBase(BaseModel, ABC):
+    @classmethod
+    @abstractmethod
+    def from_response(cls, response: Response) -> Self:
+        """Create the response model from the HTTP client response object"""
 
 
 class APIGenericBase[TClient: Client | AsyncClient]:
@@ -55,10 +66,10 @@ class APIFactoryMixIn:
 class APIBase(APIGenericBase[Client], APIFactoryMixIn):
     """Base class for all sync APIs"""
 
-    def _post[TResponse: ResponseData](
+    def _post[TResponse: ResponseModelBase](
         self,
         endpoint: APIEndpoint,
-        data: RequestData,
+        data: RequestModelBase,
         response_model: Type[TResponse],
         use_api_key: bool = True,
     ) -> TResponse:
@@ -70,7 +81,7 @@ class APIBase(APIGenericBase[Client], APIFactoryMixIn):
             debug_log_api_response('post', endpoint, r)
             return response_model.from_response(r)
 
-    def _get[TResponse: ResponseData](
+    def _get[TResponse: ResponseModelBase](
         self,
         endpoint: APIEndpoint,
         response_model: Type[TResponse],
@@ -88,10 +99,10 @@ class APIBase(APIGenericBase[Client], APIFactoryMixIn):
 class AsyncAPIBase(APIGenericBase[AsyncClient], APIFactoryMixIn):
     """Base class for all async APIs"""
 
-    async def _post[TResponse: ResponseData](
+    async def _post[TResponse: ResponseModelBase](
         self,
         endpoint: APIEndpoint,
-        data: RequestData,
+        data: RequestModelBase,
         response_model: Type[TResponse],
         *,
         use_api_key: bool = True,
@@ -104,7 +115,7 @@ class AsyncAPIBase(APIGenericBase[AsyncClient], APIFactoryMixIn):
             debug_log_api_response('post', endpoint, r)
             return response_model.from_response(r)
 
-    async def _get[TResponse: ResponseData](
+    async def _get[TResponse: ResponseModelBase](
         self,
         endpoint: APIEndpoint,
         response_model: Type[TResponse],
@@ -120,8 +131,8 @@ class AsyncAPIBase(APIGenericBase[AsyncClient], APIFactoryMixIn):
             return resp
 
 
-class FilenAPIGenericBase[TClient: Client | AsyncClient, TAPI: APIBase | AsyncAPIBase]:
-    """Base generic class for sync/async Filen API facades"""
+class APINamespaceGenericBase[TClient: Client | AsyncClient, TAPI: APIBase | AsyncAPIBase]:
+    """Base generic class for sync/async API namespaces"""
 
     def __init__(self, context: 'Context', http_client: TClient):
         self._context = context
@@ -132,4 +143,12 @@ class FilenAPIGenericBase[TClient: Client | AsyncClient, TAPI: APIBase | AsyncAP
         return self._http_client.is_closed  # noqa
 
 
-api = FactoryDescriptor[APIBase | AsyncAPIBase]
+class APINamespaceBase(APINamespaceGenericBase[Client, APIBase], APIFactoryMixIn):
+    """Sync API namespace base class"""
+
+
+class AsyncAPINamespaceBase(APINamespaceGenericBase[AsyncClient, AsyncAPIBase], APIFactoryMixIn):
+    """Async API namespace base class"""
+
+
+api = FactoryDescriptor[APIBase | AsyncAPIBase | APINamespaceBase | AsyncAPINamespaceBase]

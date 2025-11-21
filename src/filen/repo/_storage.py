@@ -2,7 +2,7 @@ from typing import Final
 import os
 from uuid import UUID, uuid4
 
-from filen.api.models.dir import (
+from filen.api.v3.models.dir import (
     BASE_NAME,
     FileMetadata,
     FolderContent,
@@ -82,7 +82,7 @@ class Storage(RepoBase, StorageMixIn):
         """Retrieve folder info with metadata decryption"""
 
         uuid = uuid if uuid else self._ensure_base_folder_uuid()
-        folder_info = self._api.dir.info(FolderUUIDRequestData(uuid=uuid)).data
+        folder_info = self._api.v3.dir.info(FolderUUIDRequestData(uuid=uuid)).data
 
         if uuid != self._context.base_folder_uuid:
             master_keys = self._ensure_master_keys()
@@ -99,7 +99,7 @@ class Storage(RepoBase, StorageMixIn):
         uuid = uuid if uuid else self._ensure_base_folder_uuid()
         master_keys = self._ensure_master_keys()
 
-        folder_content = self._api.dir.content(FolderContentRequestData(uuid=uuid)).data
+        folder_content = self._api.v3.dir.content(FolderContentRequestData(uuid=uuid)).data
 
         with self._runner.task_group() as tg:
             for i, file in enumerate(folder_content.files):
@@ -116,7 +116,7 @@ class Storage(RepoBase, StorageMixIn):
         uuid = uuid if uuid else self._ensure_base_folder_uuid()
         master_keys = self._ensure_master_keys()
 
-        folder_download = self._api.dir.download(FolderUUIDRequestData(uuid=uuid)).data
+        folder_download = self._api.v3.dir.download(FolderUUIDRequestData(uuid=uuid)).data
 
         with self._runner.task_group() as tg:
             for i, file in enumerate(folder_download.files):
@@ -150,7 +150,7 @@ class Storage(RepoBase, StorageMixIn):
             name_hashed=name_hashed,
             parent=parent,
         )
-        return self._api.dir.create(data).data
+        return self._api.v3.dir.create(data).data
 
 
 class AsyncStorage(AsyncRepoBase, StorageMixIn):
@@ -161,7 +161,7 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
 
     async def folder_info(self, uuid: ItemId | FolderContentType | None = None) -> FolderInfo:
         uuid = uuid if uuid else (await self._ensure_base_folder_uuid())
-        folder_info = (await self._api.dir.info(FolderUUIDRequestData(uuid=uuid))).data
+        folder_info = (await self._api.v3.dir.info(FolderUUIDRequestData(uuid=uuid))).data
 
         if uuid != self._context.base_folder_uuid:
             master_keys = await self._ensure_master_keys()
@@ -177,7 +177,7 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
         uuid = uuid if uuid else (await self._ensure_base_folder_uuid())
         master_keys = await self._ensure_master_keys()
 
-        folder_content = (await self._api.dir.content(FolderContentRequestData(uuid=uuid))).data
+        folder_content = (await self._api.v3.dir.content(FolderContentRequestData(uuid=uuid))).data
 
         async with self._runner.task_group() as tg:
             for i, file in enumerate(folder_content.files):
@@ -192,7 +192,7 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
         uuid = uuid if uuid else self._ensure_base_folder_uuid()
         master_keys = await self._ensure_master_keys()
 
-        folder_download = (await self._api.dir.download(FolderUUIDRequestData(uuid=uuid))).data
+        folder_download = (await self._api.v3.dir.download(FolderUUIDRequestData(uuid=uuid))).data
 
         async with self._runner.task_group() as tg:
             for i, file in enumerate(folder_download.files):
@@ -224,4 +224,4 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
             name_hashed=name_hashed,
             parent=parent,
         )
-        return (await self._api.dir.create(data)).data
+        return (await self._api.v3.dir.create(data)).data

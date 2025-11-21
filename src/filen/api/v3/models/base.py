@@ -1,4 +1,4 @@
-from typing import Any, Self
+from typing import Self
 from datetime import timedelta
 
 from httpx import Response
@@ -6,6 +6,8 @@ from pydantic import AliasGenerator, BaseModel, ConfigDict, ValidationError
 from pydantic.alias_generators import to_camel
 
 from filen.errors import RequestFailedError, ResponseParseError
+
+from ..._base import RequestModelBase, ResponseModelBase
 
 
 class SerializationAliasedModel(BaseModel):
@@ -26,14 +28,11 @@ class ValidationAliasedModel(BaseModel):
     model_config = ConfigDict(alias_generator=AliasGenerator(validation_alias=to_camel))
 
 
-class RequestData(SerializationAliasedModel):
+class RequestData(RequestModelBase, SerializationAliasedModel):
     """Base model class for all Filen API request data models"""
 
-    def dump_for_payload(self) -> dict[str, Any]:
-        return self.model_dump(by_alias=True, mode='json')
 
-
-class ResponseModel(BaseModel):
+class ResponseModel(ResponseModelBase):
     """Model class for Filen API responses without additional data"""
 
     status: bool

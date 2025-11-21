@@ -1,14 +1,14 @@
 from contextlib import contextmanager
 
 from filen._context import Context
-from filen.api.models.auth import (
+from filen.api.v3.models.auth import (
     NO_2FA_CODE_PLACEHOLDER,
     AuthInfo,
     AuthInfoRequestData,
     LoginRequestData,
     UserKeys,
 )
-from filen.api.models.user import UserInfo, UserKeyPair, UserSettings
+from filen.api.v3.models.user import UserInfo, UserKeyPair, UserSettings
 from filen.config import AuthVersion
 from filen.crypto import decrypt_master_keys, decrypt_metadata, derive_master_key_and_hashed_password
 from filen.errors import FilenError, RequestFailedError
@@ -50,21 +50,21 @@ class Account(RepoBase, AccountMixIn):
     """
 
     def auth_info(self, email: str) -> AuthInfo:
-        auth_info = self._api.auth.info(AuthInfoRequestData(email=email))
+        auth_info = self._api.v3.auth.info(AuthInfoRequestData(email=email))  # noqa
         self._check_auth_version(auth_info.data.auth_version)
         return auth_info.data
 
-    def login(self, email: str, password: str, two_factor_code: str = NO_2FA_CODE_PLACEHOLDER) -> UserKeys:
+    def login(self, email: str, password: str, two_factor_code: str | None = None) -> UserKeys:
         """Login in Filen service with email/password and optionally 2FA TOTP code"""
 
         auth_info = self.auth_info(email)
         derived_info = derive_master_key_and_hashed_password(password, auth_info.salt)
 
-        login_info = self._api.auth.login(
+        login_info = self._api.v3.auth.login(
             LoginRequestData(
                 email=email,  # noqa
                 password=derived_info.password,
-                two_factor_code=two_factor_code,
+                two_factor_code=two_factor_code or NO_2FA_CODE_PLACEHOLDER,
                 auth_version=auth_info.auth_version,
             ),
         ).data
@@ -95,14 +95,14 @@ class Account(RepoBase, AccountMixIn):
     def logged_in(self) -> bool:
         with self._check_login() as res:
             if res['ok']:
-                _ = self._api.user.info()
+                _ = self._api.v3.user.info()
         return res['ok']
 
     def user_info(self) -> UserInfo:
-        return self._api.user.info().data
+        return self._api.v3.user.info().data
 
     def user_settings(self) -> UserSettings:
-        return self._api.user.settings().data
+        return self._api.v3.user.settings().data
 
     def master_keys(self) -> list[str]:
         """Retrieve user's master keys and update it in the context"""
@@ -119,20 +119,20 @@ class AsyncAccount(AsyncRepoBase, AccountMixIn):
     """Async account repository"""
 
     async def auth_info(self, email: str) -> AuthInfo:
-        auth_info = await self._api.auth.info(AuthInfoRequestData(email=email))
+        auth_info = await self._api.v3.auth.info(AuthInfoRequestData(email=email))  # noqa
         self._check_auth_version(auth_info.data.auth_version)
         return auth_info.data
 
-    async def login(self, email: str, password: str, two_factor_code: str = NO_2FA_CODE_PLACEHOLDER) -> UserKeys:
+    async def login(self, email: str, password: str, two_factor_code: str | None = None) -> UserKeys:
         auth_info = await self.auth_info(email)
         derived_info = await self._runner.run_sync(derive_master_key_and_hashed_password, password, auth_info.salt)
 
         login_info = (
-            await self._api.auth.login(
+            await self._api.v3.auth.login(
                 LoginRequestData(
                     email=email,  # noqa
                     password=derived_info.password,
-                    two_factor_code=two_factor_code,
+                    two_factor_code=two_factor_code or NO_2FA_CODE_PLACEHOLDER,
                     auth_version=auth_info.auth_version,
                 ),
             )
@@ -164,14 +164,14 @@ class AsyncAccount(AsyncRepoBase, AccountMixIn):
     async def logged_in(self) -> bool:
         with self._check_login() as res:
             if res['ok']:
-                _ = await self._api.user.info()
+                _ = await self._api.v3.user.info()
         return res['ok']
 
     async def user_info(self) -> UserInfo:
-        return (await self._api.user.info()).data
+        return (await self._api.v3.user.info()).data
 
     async def user_settings(self) -> UserSettings:
-        return (await self._api.user.settings()).data
+        return (await self._api.v3.user.settings()).data
 
     async def master_keys(self) -> list[str]:
         """Retrieve user's master keys"""
