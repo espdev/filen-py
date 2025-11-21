@@ -1,11 +1,22 @@
+"""
+Filen API v3
+
+https://gateway.filen.io/v3/docs/
+"""
+
 from .._base import APINamespaceBase, AsyncAPINamespaceBase, api
 from ._auth import AsyncAuthAPI, AuthAPI
 from ._dir import AsyncDirAPI, DirAPI
 from ._user import AsyncUserAPI, UserAPI
+from .models.dir import FolderContentType
+from .models.link import PublicLinkExpiration, PublicLinkType
 
 __all__ = [
     'APIv3',
     'AsyncAPIv3',
+    'FolderContentType',
+    'PublicLinkType',
+    'PublicLinkExpiration',
 ]
 
 
