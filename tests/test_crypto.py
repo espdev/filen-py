@@ -13,12 +13,12 @@ from filen.crypto import (
     decrypt_master_keys,
     decrypt_metadata,
     decrypt_metadata_model,
+    derive_hmac_sha256_key,
     derive_master_key_and_hashed_password,
     encrypt_content,
     encrypt_master_keys,
     encrypt_metadata,
     encrypt_metadata_model,
-    generate_hmac_key,
     generate_private_key,
     hash_name,
     keypair_der_to_pem,
@@ -235,7 +235,7 @@ def test_hash_name_auth_v3(name, name_hashed):
         'muvFAlA9HFqrgJ9XkCgYEAxnVrZToQJ/xTc5J2+ClKK8sc6mYDH7RisdVqt8YGlKAzau7ZYlvTuNzOlfQltEId42CI02po898nvSP383MAdHir'
         'p5XckLLdXLSKbhLE0rD6EvX8PpgdPeoeULM4qcNspg6q5JV0fla2DkWZ7LHO3iHukk/r6UsQgWLZU1b5e0E='
     )
-    hmac_key = generate_hmac_key(private_key)
+    hmac_key = derive_hmac_sha256_key(private_key)
 
     assert len(hmac_key) == 32
     assert hash_name(name, AuthVersion.v3, hmac_key) == name_hashed

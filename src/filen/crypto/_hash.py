@@ -13,8 +13,8 @@ from ._base import backend
 HMAC_KEY_LENGTH: Final = 32
 
 
-def generate_hmac_key(private_key: str) -> bytes:
-    """Generate hmac key for hashing names"""
+def derive_hmac_sha256_key(private_key: str) -> bytes:
+    """Derive hmac SHA-256 key from a user private key for using in hmac hash fucntion"""
 
     return HKDF(
         algorithm=SHA256(),

@@ -1,5 +1,5 @@
 from ._content import decrypt_content, encrypt_content
-from ._hash import combined_sha_hash_func, generate_hmac_key, hash_name, hmac_sha256_hash_func
+from ._hash import combined_sha_hash_func, derive_hmac_sha256_key, hash_name, hmac_sha256_hash_func
 from ._keypair import KeyPair, create_der_keypair, generate_private_key, keypair_der_to_pem
 from ._masterkey import (
     DerivedInfo,
@@ -42,5 +42,5 @@ __all__ = [
     'hash_name',
     'combined_sha_hash_func',
     'hmac_sha256_hash_func',
-    'generate_hmac_key',
+    'derive_hmac_sha256_key',
 ]
