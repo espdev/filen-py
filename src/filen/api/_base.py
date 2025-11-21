@@ -55,11 +55,23 @@ class APIGenericBase[TClient: Client | AsyncClient]:
         return headers
 
 
+class APINamespaceGenericBase[TClient: Client | AsyncClient, TAPI: APIBase | AsyncAPIBase]:
+    """Base generic class for sync/async API namespaces"""
+
+    def __init__(self, context: 'Context', http_client: TClient):
+        self._context = context
+        self._http_client = http_client
+
+    @property
+    def is_closed(self) -> bool:
+        return self._http_client.is_closed  # noqa
+
+
 class APIFactoryMixIn:
     _context: Context
     _http_client: Client | AsyncClient
 
-    def _create[T: APIGenericBase](self, api_type: Type[T]) -> T:
+    def _create[T: APIGenericBase | APINamespaceGenericBase](self, api_type: Type[T]) -> T:
         return api_type(context=self._context, http_client=self._http_client)
 
 
@@ -129,18 +141,6 @@ class AsyncAPIBase(APIGenericBase[AsyncClient], APIFactoryMixIn):
             resp = response_model.from_response(r)
             debug_log_api_response('get', endpoint, r)
             return resp
-
-
-class APINamespaceGenericBase[TClient: Client | AsyncClient, TAPI: APIBase | AsyncAPIBase]:
-    """Base generic class for sync/async API namespaces"""
-
-    def __init__(self, context: 'Context', http_client: TClient):
-        self._context = context
-        self._http_client = http_client
-
-    @property
-    def is_closed(self) -> bool:
-        return self._http_client.is_closed  # noqa
 
 
 class APINamespaceBase(APINamespaceGenericBase[Client, APIBase], APIFactoryMixIn):
