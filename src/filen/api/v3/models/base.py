@@ -1,5 +1,6 @@
 from typing import Self
 from datetime import timedelta
+from uuid import UUID
 
 from httpx import Response
 from pydantic import AliasGenerator, BaseModel, ConfigDict, ValidationError
@@ -30,6 +31,10 @@ class ValidationAliasedModel(BaseModel):
 
 class RequestData(RequestModelBase, SerializationAliasedModel):
     """Base model class for all Filen API request data models"""
+
+
+class StorageItemUUIDRequestData(RequestData):
+    uuid: UUID
 
 
 class ResponseModel(ResponseModelBase):

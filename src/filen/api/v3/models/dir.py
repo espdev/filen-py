@@ -1,19 +1,13 @@
 from typing import Annotated, Final
-from enum import Enum, StrEnum, auto
+from enum import StrEnum, auto
 from uuid import UUID
 
-from pydantic import AliasChoices, BaseModel, Field, computed_field, field_validator, model_validator
+from pydantic import AliasChoices, Field, computed_field, field_validator, model_validator
 
 from .base import RequestData, ResponseData, ValidationAliasedModel
+from .file import FileEncryptionVersion, FileMetadata
 
-BASE_NAME: Final = 'base'
-
-
-class FileEncryptionVersion(float, Enum):
-    v1 = 1
-    v1_5 = 1.5
-    v2 = 2
-    v3 = 3
+ROOT_PARENT: Final = 'base'
 
 
 class FolderItem(StrEnum):
@@ -28,26 +22,8 @@ class FolderContentType(StrEnum):
     trash = auto()
 
 
-class FolderUUID(BaseModel):
-    uuid: UUID
-
-
-class FolderUUIDRequestData(RequestData):
-    uuid: UUID
-
-
 class FolderContentRequestData(RequestData):
     uuid: UUID | FolderContentType
-
-
-class FileMetadata(ValidationAliasedModel):
-    """Decrypted file metadata"""
-
-    name: str
-    size: int
-    mime: str
-    key: str
-    last_modified: int
 
 
 class FolderMetadata(ValidationAliasedModel):
@@ -72,7 +48,7 @@ class StorageItemInfo[TMetadata: FileMetadata | FolderMetadata](ValidationAliase
     @field_validator('parent', mode='before')
     @classmethod
     def _validate_parent(cls, v) -> UUID | None:
-        if v == BASE_NAME:
+        if v == ROOT_PARENT:
             return None
         return v
 

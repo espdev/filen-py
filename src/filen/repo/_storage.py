@@ -2,8 +2,8 @@ from typing import Final
 import os
 from uuid import UUID, uuid4
 
+from filen.api.v3.models import StorageItemUUIDRequestData
 from filen.api.v3.models.dir import (
-    BASE_NAME,
     FileMetadata,
     FolderContent,
     FolderContentRequestData,
@@ -14,8 +14,8 @@ from filen.api.v3.models.dir import (
     FolderInfo,
     FolderItem,
     FolderMetadata,
-    FolderUUIDRequestData,
 )
+from filen.api.v3.models.file import FileInfo
 from filen.crypto import decrypt_metadata_model, encrypt_metadata_model, hash_name
 from filen.errors import StorageError
 
@@ -82,14 +82,14 @@ class Storage(RepoBase, StorageMixIn):
         """Retrieve folder info with metadata decryption"""
 
         uuid = uuid if uuid else self._ensure_base_folder_uuid()
-        folder_info = self._api.v3.dir.info(FolderUUIDRequestData(uuid=uuid)).data
+        folder_info = self._api.v3.dir.info(StorageItemUUIDRequestData(uuid=uuid)).data
 
         if uuid != self._context.base_folder_uuid:
             master_keys = self._ensure_master_keys()
             folder_info.metadata = self._decrypt_folder_metadata(folder_info.metadata, master_keys)
         else:
-            folder_info.metadata = FolderMetadata(name=BASE_NAME)
-            folder_info.name_hashed = BASE_NAME
+            folder_info.metadata = FolderMetadata(name='')
+            folder_info.name_hashed = ''
 
         return folder_info
 
@@ -116,14 +116,18 @@ class Storage(RepoBase, StorageMixIn):
         uuid = uuid if uuid else self._ensure_base_folder_uuid()
         master_keys = self._ensure_master_keys()
 
-        folder_download = self._api.v3.dir.download(FolderUUIDRequestData(uuid=uuid)).data
+        folder_download = self._api.v3.dir.download(StorageItemUUIDRequestData(uuid=uuid)).data
 
         with self._runner.task_group() as tg:
             for i, file in enumerate(folder_download.files):
                 tg.add_task((FolderItem.file, i), self._decrypt_file_metadata, file.metadata, master_keys)
 
             for i, folder in enumerate(folder_download.folders):
-                tg.add_task((FolderItem.folder, i), self._decrypt_folder_metadata, folder.metadata, master_keys)
+                if folder.uuid != self._context.base_folder_uuid:
+                    tg.add_task((FolderItem.folder, i), self._decrypt_folder_metadata, folder.metadata, master_keys)
+                else:
+                    folder.metadata = FolderMetadata(name='')
+                    folder.name_hashed = ''
 
         return self._collect_decrypted_metadata(folder_download, tg.results)
 
@@ -152,6 +156,16 @@ class Storage(RepoBase, StorageMixIn):
         )
         return self._api.v3.dir.create(data).data
 
+    def file_info(self, uuid: ItemId) -> FileInfo:
+        """Return the file info"""
+
+        master_keys = self._ensure_master_keys()
+
+        file_info = self._api.v3.file.info(StorageItemUUIDRequestData(uuid=uuid)).data
+        file_info.metadata = self._decrypt_file_metadata(file_info.metadata, master_keys)
+
+        return file_info
+
 
 class AsyncStorage(AsyncRepoBase, StorageMixIn):
     """Async Storage repository"""
@@ -161,15 +175,16 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
 
     async def folder_info(self, uuid: ItemId | FolderContentType | None = None) -> FolderInfo:
         uuid = uuid if uuid else (await self._ensure_base_folder_uuid())
-        folder_info = (await self._api.v3.dir.info(FolderUUIDRequestData(uuid=uuid))).data
+        folder_info = (await self._api.v3.dir.info(StorageItemUUIDRequestData(uuid=uuid))).data
 
         if uuid != self._context.base_folder_uuid:
             master_keys = await self._ensure_master_keys()
-            metadata = await self._runner.run_sync(self._decrypt_folder_metadata, folder_info.metadata, master_keys)
-            folder_info.metadata = metadata
+            folder_info.metadata = await self._runner.run_sync(
+                self._decrypt_folder_metadata, folder_info.metadata, master_keys
+            )
         else:
-            folder_info.metadata = FolderMetadata(name=BASE_NAME)
-            folder_info.name_hashed = BASE_NAME
+            folder_info.metadata = FolderMetadata(name='')
+            folder_info.name_hashed = ''
 
         return folder_info
 
@@ -189,17 +204,21 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
         return self._collect_decrypted_metadata(folder_content, tg.results)
 
     async def folder_download(self, uuid: ItemId | None = None) -> FolderDownload:
-        uuid = uuid if uuid else self._ensure_base_folder_uuid()
+        uuid = uuid if uuid else (await self._ensure_base_folder_uuid())
         master_keys = await self._ensure_master_keys()
 
-        folder_download = (await self._api.v3.dir.download(FolderUUIDRequestData(uuid=uuid))).data
+        folder_download = (await self._api.v3.dir.download(StorageItemUUIDRequestData(uuid=uuid))).data
 
         async with self._runner.task_group() as tg:
             for i, file in enumerate(folder_download.files):
                 tg.add_task((FolderItem.file, i), self._decrypt_file_metadata, file.metadata, master_keys)
 
             for i, folder in enumerate(folder_download.folders):
-                tg.add_task((FolderItem.folder, i), self._decrypt_folder_metadata, folder.metadata, master_keys)
+                if folder.uuid != self._context.base_folder_uuid:
+                    tg.add_task((FolderItem.folder, i), self._decrypt_folder_metadata, folder.metadata, master_keys)
+                else:
+                    folder.metadata = FolderMetadata(name='')
+                    folder.name_hashed = ''
 
         return self._collect_decrypted_metadata(folder_download, tg.results)
 
@@ -225,3 +244,11 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
             parent=parent,
         )
         return (await self._api.v3.dir.create(data)).data
+
+    async def file_info(self, uuid: ItemId) -> FileInfo:
+        master_keys = await self._ensure_master_keys()
+
+        file_info = (await self._api.v3.file.info(StorageItemUUIDRequestData(uuid=uuid))).data
+        file_info.metadata = await self._runner.run_sync(self._decrypt_file_metadata, file_info.metadata, master_keys)
+
+        return file_info

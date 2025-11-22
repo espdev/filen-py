@@ -1,4 +1,5 @@
 from .._base import APIBase, APIEndpoint, AsyncAPIBase
+from .models.base import StorageItemUUIDRequestData
 from .models.dir import (
     FolderContentRequestData,
     FolderContentResponseData,
@@ -6,7 +7,6 @@ from .models.dir import (
     FolderCreateResponseData,
     FolderDownloadResponseData,
     FolderInfoResponseData,
-    FolderUUIDRequestData,
 )
 
 
@@ -20,13 +20,13 @@ class DirEndpoint(APIEndpoint):
 class DirAPI(APIBase):
     """Dir API"""
 
-    def info(self, data: FolderUUIDRequestData) -> FolderInfoResponseData:
+    def info(self, data: StorageItemUUIDRequestData) -> FolderInfoResponseData:
         return self._post(DirEndpoint.info, data, FolderInfoResponseData)
 
     def content(self, data: FolderContentRequestData) -> FolderContentResponseData:
         return self._post(DirEndpoint.content, data, FolderContentResponseData)
 
-    def download(self, data: FolderUUIDRequestData) -> FolderDownloadResponseData:
+    def download(self, data: StorageItemUUIDRequestData) -> FolderDownloadResponseData:
         return self._post(DirEndpoint.download, data, FolderDownloadResponseData)
 
     def create(self, data: FolderCreateRequestData) -> FolderCreateResponseData:
@@ -36,13 +36,13 @@ class DirAPI(APIBase):
 class AsyncDirAPI(AsyncAPIBase):
     """Async Dir API"""
 
-    async def info(self, data: FolderUUIDRequestData) -> FolderInfoResponseData:
+    async def info(self, data: StorageItemUUIDRequestData) -> FolderInfoResponseData:
         return await self._post(DirEndpoint.info, data, FolderInfoResponseData)
 
     async def content(self, data: FolderContentRequestData) -> FolderContentResponseData:
         return await self._post(DirEndpoint.content, data, FolderContentResponseData)
 
-    async def download(self, data: FolderUUIDRequestData) -> FolderDownloadResponseData:
+    async def download(self, data: StorageItemUUIDRequestData) -> FolderDownloadResponseData:
         return await self._post(DirEndpoint.download, data, FolderDownloadResponseData)
 
     async def create(self, data: FolderCreateRequestData) -> FolderCreateResponseData:
