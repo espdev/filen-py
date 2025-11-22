@@ -84,7 +84,7 @@ class Storage(RepoBase, StorageMixIn):
         uuid = uuid if uuid else self._ensure_base_folder_uuid()
         folder_info = self._api.v3.dir.info(StorageItemUUIDRequestData(uuid=uuid)).data
 
-        if uuid != self._context.base_folder_uuid:
+        if str(uuid) != str(self._context.base_folder_uuid):
             master_keys = self._ensure_master_keys()
             folder_info.metadata = self._decrypt_folder_metadata(folder_info.metadata, master_keys)
         else:
@@ -177,7 +177,7 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
         uuid = uuid if uuid else (await self._ensure_base_folder_uuid())
         folder_info = (await self._api.v3.dir.info(StorageItemUUIDRequestData(uuid=uuid))).data
 
-        if uuid != self._context.base_folder_uuid:
+        if str(uuid) != str(self._context.base_folder_uuid):
             master_keys = await self._ensure_master_keys()
             folder_info.metadata = await self._runner.run_sync(
                 self._decrypt_folder_metadata, folder_info.metadata, master_keys
