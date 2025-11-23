@@ -138,6 +138,30 @@ class StorageItemExists(BaseModel):
     def __bool__(self) -> bool:
         return self.exists
 
+    @classmethod
+    def not_exist(cls) -> Self:
+        return cls(
+            uuid=None,
+            type=StorageItemType.none,
+            exists=False,
+        )
+
+    @classmethod
+    def folder_exists(cls, uuid: UUID) -> Self:
+        return cls(
+            uuid=uuid,
+            type=StorageItemType.folder,
+            exists=True,
+        )
+
+    @classmethod
+    def file_exists(cls, uuid: UUID) -> Self:
+        return cls(
+            uuid=uuid,
+            type=StorageItemType.file,
+            exists=True,
+        )
+
 
 class FileDetail(BaseModel):
     path: str

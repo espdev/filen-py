@@ -66,20 +66,12 @@ class FS(RepoBase, FSMixIn):
         base_uuid = self._ensure_base_folder_uuid()
 
         if path == '/':
-            return StorageItemExists(
-                uuid=base_uuid,
-                type=StorageItemType.folder,
-                exists=True,
-            )
+            return StorageItemExists.folder_exists(base_uuid)
 
         try:
             parts = self._path_parts(path)
         except StorageError:
-            return StorageItemExists(
-                uuid=None,
-                type=StorageItemType.none,
-                exists=False,
-            )
+            return StorageItemExists.not_exist()
 
         parent = base_uuid
 
@@ -147,20 +139,12 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
         base_uuid = await self._ensure_base_folder_uuid()
 
         if path == '/':
-            return StorageItemExists(
-                uuid=base_uuid,
-                type=StorageItemType.folder,
-                exists=True,
-            )
+            return StorageItemExists.folder_exists(base_uuid)
 
         try:
             parts = self._path_parts(path)
         except StorageError:
-            return StorageItemExists(
-                uuid=None,
-                type=StorageItemType.none,
-                exists=False,
-            )
+            return StorageItemExists.not_exist()
 
         parent = base_uuid
 
