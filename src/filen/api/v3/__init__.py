@@ -10,13 +10,12 @@ from ._dir import AsyncDirAPI, DirAPI
 from ._file import AsyncFileAPI, FileAPI
 from ._user import AsyncUserAPI, UserAPI
 from .models.dir import FolderContentType
-from .models.link import PublicLinkExpiration, PublicLinkType
+from .models.link import PublicLinkExpiration
 
 __all__ = [
     'APIv3',
     'AsyncAPIv3',
     'FolderContentType',
-    'PublicLinkType',
     'PublicLinkExpiration',
 ]
 

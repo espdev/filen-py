@@ -94,4 +94,8 @@ class ResponseData[TData: ValidationAliasedModel](ResponseModel):
     def data_as[T](self, model: Type[BaseModel], **extra_fields) -> T:
         if not extra_fields:
             return model.model_validate(self.data)
-        return model(**self.data.model_dump(), **extra_fields)
+        data = {
+            **self.data.model_dump(),
+            **extra_fields,
+        }
+        return model.model_validate(data)

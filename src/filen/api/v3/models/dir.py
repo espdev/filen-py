@@ -7,6 +7,7 @@ from pydantic import BaseModel, BeforeValidator
 from filen.config import FileEncryptionVersion
 
 from .base import RequestData, ResponseData, StorageItemExists, ValidationAliasedModel
+from .link import PublicLinkStatus
 
 ROOT_PARENT: Final = 'base'
 
@@ -126,3 +127,6 @@ class FolderCreateResponseData(ResponseData[FolderCreated]): ...
 
 
 class FolderExistsResponseData(ResponseData[StorageItemExists]): ...
+
+
+class FolderPublicLinkStatusResponseData(ResponseData[PublicLinkStatus]): ...

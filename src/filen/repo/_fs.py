@@ -6,7 +6,7 @@ from filen.errors import StorageError
 
 from ._base import AsyncRepoBase, RepoBase, repo
 from ._storage import AsyncStorage, Storage
-from .models import FileDetail, FolderContent, FolderDetail, StorageItemExists, StorageItemType
+from .models import FileDetail, FolderContent, FolderDetail, PublicLinkStatus, StorageItemExists, StorageItemType
 
 
 class FSMixIn:
@@ -128,6 +128,16 @@ class FS(RepoBase, FSMixIn):
 
         return parent_uuid
 
+    def link(self, path: str, detail: bool = False) -> str | PublicLinkStatus | None:
+        """Get a public link status for the file/folder"""
+
+        exists = self.exists(path)
+        if not exists:
+            return PublicLinkStatus.not_exist() if detail else None
+
+        link_status = self._storage.link_status(exists.uuid, exists.type)
+        return link_status if detail else link_status.link
+
 
 class AsyncFS(AsyncRepoBase, FSMixIn):
     """Async High-level filesystem-like repository to manipulate files and folders"""
@@ -135,6 +145,8 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
     _storage: AsyncStorage = repo(AsyncStorage)
 
     async def exists(self, path: str) -> StorageItemExists:
+        """Check is a path exists"""
+
         path = self._normalize_path(path)
         base_uuid = await self._ensure_base_folder_uuid()
 
@@ -184,6 +196,8 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
             return self._collect_folder_content(path, folder_content, detail=detail)
 
     async def mkdir(self, path: str) -> UUID:
+        """Create a directory on the cloud storage with parents for given path"""
+
         parent_uuid = await self._ensure_base_folder_uuid()
         path = self._normalize_path(path)
 
@@ -195,3 +209,13 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
             parent_uuid = folder_created.uuid
 
         return parent_uuid
+
+    async def link(self, path: str, detail: bool = False) -> str | PublicLinkStatus | None:
+        """Get a public link status for the file/folder"""
+
+        exists = await self.exists(path)
+        if not exists:
+            return PublicLinkStatus.not_exist() if detail else None
+
+        link_status = await self._storage.link_status(exists.uuid, exists.type)
+        return link_status if detail else link_status.link

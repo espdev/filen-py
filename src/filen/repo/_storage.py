@@ -1,5 +1,6 @@
 from typing import Final
 import os
+from urllib.parse import quote
 from uuid import UUID, uuid4
 
 from filen._context import Context
@@ -10,7 +11,8 @@ from filen.api.v3.models.dir import (
     FolderCreateRequestData,
     FolderItemType,
 )
-from filen.crypto import decrypt_metadata_model, encrypt_metadata_model, hash_name
+from filen.config import FILEN_PUBLIC_FILE_LINK_BASE_URL, FILEN_PUBLIC_FOLDER_LINK_BASE_URL
+from filen.crypto import decrypt_metadata, decrypt_metadata_model, encrypt_metadata_model, hash_name
 from filen.errors import StorageError
 
 from ._base import AsyncRepoBase, RepoBase
@@ -21,6 +23,7 @@ from .models import (
     FolderContent,
     FolderInfo,
     FolderMetadata,
+    PublicLinkStatus,
     StorageItemExists,
     StorageItemType,
 )
@@ -214,6 +217,39 @@ class Storage(RepoBase, StorageMixIn):
 
         return FileInfo(**file_info.model_dump(exclude={'metadata'}), metadata=metadata)
 
+    def link_status(self, uuid: ItemId, link_type: StorageItemType | str | None = None) -> PublicLinkStatus:
+        data = StorageItemUUIDRequestData(uuid=uuid)
+
+        match link_type:
+            case StorageItemType.file:
+                response = self._api.v3.file.link_status(data)
+            case StorageItemType.folder:
+                response = self._api.v3.dir.link_status(data)
+            case _:
+                response = self._api.v3.file.link_status(data)
+                if response.data:
+                    link_type = StorageItemType.file
+                else:
+                    response = self._api.v3.dir.link_status(data)
+                    link_type = StorageItemType.folder
+
+        if not response.data or not response.data.exists:
+            return PublicLinkStatus.not_exist()
+
+        if link_type == StorageItemType.file:
+            file_info = self.file_info(uuid)
+            key = file_info.metadata.key
+            link_base_url = FILEN_PUBLIC_FILE_LINK_BASE_URL
+        else:
+            master_keys = self._ensure_master_keys()
+            key = decrypt_metadata(response.data.key, master_keys)
+            link_base_url = FILEN_PUBLIC_FOLDER_LINK_BASE_URL
+
+        link_path = quote(f'{response.data.uuid}#{key}')
+        link = f'{link_base_url}/{link_path}'
+
+        return response.data_as(PublicLinkStatus, type=link_type, key=key, link=link)
+
 
 class AsyncStorage(AsyncRepoBase, StorageMixIn):
     """Async Storage repository"""
@@ -323,3 +359,36 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
         metadata, _ = await self._runner.run_sync(self._decrypt_file_metadata, file_info.metadata, master_keys)
 
         return FileInfo(**file_info.model_dump(exclude={'metadata'}), metadata=metadata)
+
+    async def link_status(self, uuid: ItemId, link_type: StorageItemType | str | None = None) -> PublicLinkStatus:
+        data = StorageItemUUIDRequestData(uuid=uuid)
+
+        match link_type:
+            case StorageItemType.file:
+                response = await self._api.v3.file.link_status(data)
+            case StorageItemType.folder:
+                response = await self._api.v3.dir.link_status(data)
+            case _:
+                response = await self._api.v3.file.link_status(data)
+                if response.data:
+                    link_type = StorageItemType.file
+                else:
+                    response = await self._api.v3.dir.link_status(data)
+                    link_type = StorageItemType.folder
+
+        if not response.data or not response.data.exists:
+            return PublicLinkStatus.not_exist()
+
+        if link_type == StorageItemType.file:
+            file_info = await self.file_info(uuid)
+            key = file_info.metadata.key
+            link_base_url = FILEN_PUBLIC_FILE_LINK_BASE_URL
+        else:
+            master_keys = await self._ensure_master_keys()
+            key = await self._runner.run_sync(decrypt_metadata, response.data.key, master_keys)
+            link_base_url = FILEN_PUBLIC_FOLDER_LINK_BASE_URL
+
+        link_path = quote(f'{response.data.uuid}#{key}')
+        link = f'{link_base_url}/{link_path}'
+
+        return response.data_as(PublicLinkStatus, type=link_type, key=key, link=link)

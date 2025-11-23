@@ -5,6 +5,11 @@ from pydantic import EmailStr, HttpUrl, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 FILEN_API_URL: Final = 'https://gateway.filen.io/v3'
+FILEN_APP_URL: Final = 'https://app.filen.io'
+
+FILEN_PUBLIC_FILE_LINK_BASE_URL: Final = f'{FILEN_APP_URL}/#/d'
+FILEN_PUBLIC_FOLDER_LINK_BASE_URL: Final = f'{FILEN_APP_URL}/#/f'
+
 DEFAULT_REQUEST_TIMEOUT: Final = 15.0  # sec
 
 

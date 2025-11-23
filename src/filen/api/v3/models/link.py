@@ -1,9 +1,10 @@
-from enum import StrEnum, auto
+from typing import Annotated
+from enum import StrEnum
+from uuid import UUID
 
+from pydantic import AliasChoices, Field
 
-class PublicLinkType(StrEnum):
-    file = auto()
-    folder = auto()
+from .base import ValidationAliasedModel
 
 
 class PublicLinkExpiration(StrEnum):
@@ -15,3 +16,13 @@ class PublicLinkExpiration(StrEnum):
     exp_6h = '6h'
     exp_1h = '1h'
     never = 'never'
+
+
+class PublicLinkStatus(ValidationAliasedModel):
+    exists: Annotated[bool, Field(validation_alias=AliasChoices('exists', 'enabled'))]
+    uuid: UUID | None = None
+    key: str | None = None
+    expiration: int | None = None
+    expiration_text: PublicLinkExpiration | None = None
+    download_btn: bool | None = None
+    password: str | None = None

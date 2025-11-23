@@ -3,6 +3,7 @@ from uuid import UUID
 from filen.config import FileEncryptionVersion
 
 from .base import ResponseData, StorageItemExists, ValidationAliasedModel
+from .link import PublicLinkStatus
 
 
 class FileInfo(ValidationAliasedModel):
@@ -23,3 +24,6 @@ class FileInfoResponseData(ResponseData[FileInfo]): ...
 
 
 class FileExistsResponseData(ResponseData[StorageItemExists]): ...
+
+
+class FilePublicLinkStatusResponseData(ResponseData[PublicLinkStatus]): ...

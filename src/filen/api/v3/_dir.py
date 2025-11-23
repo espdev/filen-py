@@ -8,6 +8,7 @@ from .models.dir import (
     FolderDownloadResponseData,
     FolderExistsResponseData,
     FolderInfoResponseData,
+    FolderPublicLinkStatusResponseData,
 )
 
 
@@ -17,6 +18,7 @@ class DirEndpoint(APIEndpoint):
     download = '/dir/download'
     exists = '/dir/exists'
     create = '/dir/create'
+    link_status = '/dir/link/status'
 
 
 class DirAPI(APIBase):
@@ -37,6 +39,9 @@ class DirAPI(APIBase):
     def create(self, data: FolderCreateRequestData) -> FolderCreateResponseData:
         return self._post(DirEndpoint.create, data, FolderCreateResponseData)
 
+    def link_status(self, data: StorageItemUUIDRequestData) -> FolderPublicLinkStatusResponseData:
+        return self._post(DirEndpoint.link_status, data, FolderPublicLinkStatusResponseData)
+
 
 class AsyncDirAPI(AsyncAPIBase):
     """Async Dir API"""
@@ -55,3 +60,6 @@ class AsyncDirAPI(AsyncAPIBase):
 
     async def create(self, data: FolderCreateRequestData) -> FolderCreateResponseData:
         return await self._post(DirEndpoint.create, data, FolderCreateResponseData)
+
+    async def link_status(self, data: StorageItemUUIDRequestData) -> FolderPublicLinkStatusResponseData:
+        return await self._post(DirEndpoint.link_status, data, FolderPublicLinkStatusResponseData)

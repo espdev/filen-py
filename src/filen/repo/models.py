@@ -6,6 +6,7 @@ from uuid import UUID
 from pydantic import AliasChoices, ConfigDict, Field, computed_field, model_validator
 from pydantic import BaseModel as _BaseModel
 
+from filen.api.v3.models.link import PublicLinkExpiration
 from filen.config import AuthVersion, FileEncryptionVersion
 
 
@@ -121,18 +122,17 @@ class CreateFolderInfo(BaseModel):
 class StorageItemType(StrEnum):
     file = auto()
     folder = auto()
-    none = auto()
 
 
 class StorageItemExists(BaseModel):
     uuid: UUID | None
-    type: StorageItemType
+    type: StorageItemType | None
     exists: bool
 
     @model_validator(mode='after')
     def _validate_model(self):
         if not self.exists:
-            self.type = StorageItemType.none
+            self.type = None
         return self
 
     def __bool__(self) -> bool:
@@ -142,7 +142,7 @@ class StorageItemExists(BaseModel):
     def not_exist(cls) -> Self:
         return cls(
             uuid=None,
-            type=StorageItemType.none,
+            type=None,
             exists=False,
         )
 
@@ -199,3 +199,22 @@ class FolderDetail(BaseModel):
             uuid=folder_info.uuid,
             created=datetime.fromtimestamp(folder_info.timestamp),
         )
+
+
+class PublicLinkStatus(BaseModel):
+    exists: Annotated[bool, Field(validation_alias=AliasChoices('exists', 'enabled'))]
+    type: StorageItemType | None = None
+    uuid: UUID | None = None
+    key: str | None = None
+    link: str | None = None
+    expiration: int | None = None
+    expiration_text: PublicLinkExpiration | None = None
+    download_btn: bool | None = None
+    password: str | None = None
+
+    @classmethod
+    def not_exist(cls) -> Self:
+        return cls(exists=False)
+
+    def __bool__(self) -> bool:
+        return self.exists
