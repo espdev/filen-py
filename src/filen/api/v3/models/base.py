@@ -1,4 +1,4 @@
-from typing import Self
+from typing import Self, Type
 from datetime import timedelta
 from uuid import UUID
 
@@ -73,3 +73,6 @@ class ResponseData[TData: ValidationAliasedModel](ResponseModel):
     """Genedic model class for Filen API responses with additional data"""
 
     data: TData | list[TData] | None = None
+
+    def data_as[T](self, model: Type[BaseModel]) -> T:
+        return model.model_validate(self.data)

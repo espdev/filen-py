@@ -1,24 +1,8 @@
-from enum import ReprEnum
 from uuid import UUID
 
+from filen.config import FileEncryptionVersion
+
 from .base import ResponseData, ValidationAliasedModel
-
-
-class FileEncryptionVersion(float, ReprEnum):
-    v1 = 1
-    v1_5 = 1.5
-    v2 = 2
-    v3 = 3
-
-
-class FileMetadata(ValidationAliasedModel):
-    """Decrypted file metadata"""
-
-    name: str
-    size: int
-    mime: str
-    key: str
-    last_modified: int
 
 
 class FileInfo(ValidationAliasedModel):
@@ -26,7 +10,7 @@ class FileInfo(ValidationAliasedModel):
     parent: UUID
     region: str
     bucket: str
-    metadata: str | FileMetadata
+    metadata: str
     name_hashed: str
     favorited: bool
     versioned: bool

@@ -1,6 +1,6 @@
 from filen._base import AsyncFilenClientBase, FilenClientBase
-from filen.api.v3.models.auth import UserKeys
 from filen.repo import FS, Account, AsyncAccount, AsyncFS, AsyncStorage, Storage, repo
+from filen.repo.models import UserKeys
 
 
 class FilenClient(FilenClientBase):

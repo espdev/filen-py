@@ -1,5 +1,5 @@
 from typing import Final
-from enum import IntEnum
+from enum import IntEnum, ReprEnum
 
 from pydantic import EmailStr, HttpUrl, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -10,6 +10,13 @@ DEFAULT_REQUEST_TIMEOUT: Final = 15.0  # sec
 
 class AuthVersion(IntEnum):
     v1 = 1
+    v2 = 2
+    v3 = 3
+
+
+class FileEncryptionVersion(float, ReprEnum):
+    v1 = 1
+    v1_5 = 1.5
     v2 = 2
     v3 = 3
 

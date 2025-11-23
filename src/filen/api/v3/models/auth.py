@@ -1,6 +1,6 @@
 from typing import Annotated, Final, Literal
 
-from pydantic import BaseModel, EmailStr, StringConstraints
+from pydantic import EmailStr, StringConstraints
 
 from filen.config import AuthVersion
 
@@ -42,11 +42,3 @@ class LoginData(ValidationAliasedModel):
 
 
 class LoginResponseData(ResponseData[LoginData]): ...
-
-
-class UserKeys(BaseModel):
-    api_key: str
-    master_keys: list[str]
-    public_key: str
-    private_key: str
-    dek: str | None

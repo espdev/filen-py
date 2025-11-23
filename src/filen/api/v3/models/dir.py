@@ -2,10 +2,11 @@ from typing import Annotated, Final
 from enum import StrEnum, auto
 from uuid import UUID
 
-from pydantic import AliasChoices, Field, computed_field, field_validator, model_validator
+from pydantic import BaseModel, BeforeValidator
+
+from filen.config import FileEncryptionVersion
 
 from .base import RequestData, ResponseData, ValidationAliasedModel
-from .file import FileEncryptionVersion, FileMetadata
 
 ROOT_PARENT: Final = 'base'
 
@@ -26,72 +27,84 @@ class FolderContentRequestData(RequestData):
     uuid: UUID | FolderContentType
 
 
-class FolderMetadata(ValidationAliasedModel):
-    """Decrypted folder metadata (name)"""
-
-    name: str
+FolderParent = Annotated[UUID | None, BeforeValidator(lambda v: v if v != ROOT_PARENT else None)]
 
 
-class StorageItemInfo[TMetadata: FileMetadata | FolderMetadata](ValidationAliasedModel):
+class FolderInfo(ValidationAliasedModel):
     uuid: UUID
-    parent: UUID | None
-    metadata: Annotated[str | TMetadata, Field(validation_alias=AliasChoices('metadata', 'name', 'nameEncrypted'))]
-    name_hashed: str | None = None
+    parent: FolderParent
+    name_encrypted: str
+    name_hashed: str
     favorited: bool
-    trash: bool = False
-    timestamp: int
-    trash_timestamp: Annotated[
-        int | None,
-        Field(validation_alias=AliasChoices('trashTimestamp', 'trash_timestamp')),
-    ] = None
-
-    @field_validator('parent', mode='before')
-    @classmethod
-    def _validate_parent(cls, v) -> UUID | None:
-        if v == ROOT_PARENT:
-            return None
-        return v
-
-    @model_validator(mode='after')
-    def _validate_item(self):
-        if self.trash_timestamp:
-            self.trash = True
-        return self
-
-
-class FileInfo(StorageItemInfo[FileMetadata]):
-    bucket: str
-    region: str
-    chunks: int
-    chunks_size: int | None = None
-    rm: str | None = None
-    version: FileEncryptionVersion
-
-
-class FolderInfo(StorageItemInfo[FolderMetadata]):
+    trash: bool
     color: str | None
-    is_sync: Annotated[bool | None, Field(validation_alias=AliasChoices('isSync', 'is_sync'))] = None
-    is_default: Annotated[bool | None, Field(validation_alias=AliasChoices('isDefault', 'is_default'))] = None
-    trash_parent: Annotated[
-        int | None,
-        Field(validation_alias=AliasChoices('trashParent', 'trash_parent')),
-    ] = None
+    timestamp: int
 
 
 class FolderInfoResponseData(ResponseData[FolderInfo]): ...
 
 
+class FolderContentUploadInfo(ValidationAliasedModel):
+    uuid: UUID
+    parent: UUID | None
+    region: str
+    bucket: str
+    metadata: str
+    rm: str
+    chunks: int
+    size: int
+    favorited: bool
+    version: FileEncryptionVersion
+    trash_timestamp: int | None = None
+    timestamp: int
+
+
+class FolderContentFolderInfo(BaseModel):
+    uuid: UUID
+    parent: FolderParent
+    name: str
+    favorited: bool
+    color: str | None
+    trash_parent: int | None = None
+    trash_timestamp: int | None = None
+    timestamp: int
+
+
 class FolderContent(ValidationAliasedModel):
-    files: Annotated[list[FileInfo], Field(validation_alias='uploads')]
-    folders: list[FolderInfo]
+    uploads: list[FolderContentUploadInfo]
+    folders: list[FolderContentFolderInfo]
 
 
 class FolderContentResponseData(ResponseData[FolderContent]): ...
 
 
+class FolderDownloadFileInfo(ValidationAliasedModel):
+    uuid: UUID
+    parent: UUID
+    region: str
+    bucket: str
+    metadata: str
+    name_hashed: str
+    chunks: int
+    chunks_size: int
+    favorited: bool
+    version: FileEncryptionVersion
+    timestamp: int
+
+
+class FolderDownloadFolderInfo(ValidationAliasedModel):
+    uuid: UUID
+    parent: FolderParent
+    name: str
+    name_hashed: str
+    favorited: bool
+    color: str | None
+    timestamp: int
+
+
 class FolderDownload(ValidationAliasedModel):
-    files: list[FileInfo]
-    folders: list[FolderInfo]
+    files: list[FolderDownloadFileInfo]
+    folders: list[FolderDownloadFolderInfo]
 
 
 class FolderDownloadResponseData(ResponseData[FolderDownload]): ...
@@ -107,10 +120,6 @@ class FolderCreateRequestData(RequestData):
 class FolderCreated(ValidationAliasedModel):
     uuid: UUID
     timestamp: int = None
-
-    @computed_field
-    def created(self) -> bool:
-        return self.timestamp is not None
 
 
 class FolderCreateResponseData(ResponseData[FolderCreated]): ...

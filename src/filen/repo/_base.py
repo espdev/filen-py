@@ -5,9 +5,11 @@ from filen._context import Context
 from filen._helpers import FactoryDescriptor
 from filen.api import AsyncFilenAPI, FilenAPI
 from filen.api.v3.models.auth import AuthInfoRequestData
-from filen.api.v3.models.user import UserKeyPair, UserMasterKeysRequestData
+from filen.api.v3.models.user import UserMasterKeysRequestData
 from filen.crypto import decrypt_master_keys, decrypt_metadata, derive_master_key_and_hashed_password, encrypt_metadata
 from filen.runners import AsyncRunnerBase, RunnerBase
+
+from .models import UserKeyPair
 
 
 class RepoGenericBase[TAPI: FilenAPI | AsyncFilenAPI, TRunner: RunnerBase | AsyncRunnerBase]:
