@@ -177,9 +177,9 @@ class Storage(RepoBase, StorageMixIn):
         master_keys = self._ensure_master_keys()
 
         file_info = self._api.v3.file.info(StorageItemUUIDRequestData(uuid=uuid)).data
-        file_info.metadata = self._decrypt_file_metadata(file_info.metadata, master_keys)
+        metadata, _ = self._decrypt_file_metadata(file_info.metadata, master_keys)
 
-        return file_info
+        return FileInfo(**file_info.model_dump(exclude={'metadata'}), metadata=metadata)
 
 
 class AsyncStorage(AsyncRepoBase, StorageMixIn):
@@ -267,6 +267,6 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
         master_keys = await self._ensure_master_keys()
 
         file_info = (await self._api.v3.file.info(StorageItemUUIDRequestData(uuid=uuid))).data
-        file_info.metadata = await self._runner.run_sync(self._decrypt_file_metadata, file_info.metadata, master_keys)
+        metadata, _ = await self._runner.run_sync(self._decrypt_file_metadata, file_info.metadata, master_keys)
 
-        return file_info
+        return FileInfo(**file_info.model_dump(exclude={'metadata'}), metadata=metadata)
