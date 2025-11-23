@@ -1,4 +1,6 @@
-from typing import Annotated
+from typing import Annotated, Self
+from datetime import datetime
+from enum import StrEnum, auto
 from uuid import UUID
 
 from pydantic import AliasChoices, ConfigDict, Field, computed_field, model_validator
@@ -114,3 +116,62 @@ class CreateFolderInfo(BaseModel):
     @computed_field
     def created(self) -> bool:
         return self.timestamp is not None
+
+
+class StorageItemType(StrEnum):
+    file = auto()
+    folder = auto()
+    none = auto()
+
+
+class StorageItemExists(BaseModel):
+    uuid: UUID | None
+    type: StorageItemType
+    exists: bool
+
+    @model_validator(mode='after')
+    def _validate_model(self):
+        if not self.exists:
+            self.type = StorageItemType.none
+        return self
+
+    def __bool__(self) -> bool:
+        return self.exists
+
+
+class FileDetail(BaseModel):
+    path: str
+    name: str
+    uuid: UUID
+    size: int
+    mime: str
+    created: datetime
+    last_modified: datetime
+
+    @classmethod
+    def from_info(cls, path: str, file_info: FileInfo) -> Self:
+        return cls(
+            path=f'{path}/{file_info.metadata.name}',
+            name=file_info.metadata.name,
+            uuid=file_info.uuid,
+            size=file_info.metadata.size,
+            mime=file_info.metadata.mime,
+            created=datetime.fromtimestamp(file_info.timestamp),
+            last_modified=datetime.fromtimestamp(file_info.metadata.last_modified / 1000),
+        )
+
+
+class FolderDetail(BaseModel):
+    path: str
+    name: str
+    uuid: UUID
+    created: datetime
+
+    @classmethod
+    def from_info(cls, path: str, folder_info: FolderInfo) -> Self:
+        return cls(
+            path=f'{path}/{folder_info.name}',
+            name=folder_info.name,
+            uuid=folder_info.uuid,
+            created=datetime.fromtimestamp(folder_info.timestamp),
+        )

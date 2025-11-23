@@ -3,18 +3,27 @@ import os
 from uuid import UUID, uuid4
 
 from filen._context import Context
-from filen.api.v3.models import StorageItemUUIDRequestData
+from filen.api.v3.models import StorageItemExistsRequestData, StorageItemUUIDRequestData
 from filen.api.v3.models.dir import (
     FolderContentRequestData,
     FolderContentType,
     FolderCreateRequestData,
-    FolderItem,
+    FolderItemType,
 )
 from filen.crypto import decrypt_metadata_model, encrypt_metadata_model, hash_name
 from filen.errors import StorageError
 
 from ._base import AsyncRepoBase, RepoBase
-from .models import CreateFolderInfo, FileInfo, FileMetadata, FolderContent, FolderInfo, FolderMetadata
+from .models import (
+    CreateFolderInfo,
+    FileInfo,
+    FileMetadata,
+    FolderContent,
+    FolderInfo,
+    FolderMetadata,
+    StorageItemExists,
+    StorageItemType,
+)
 
 type ItemId = UUID | str
 
@@ -59,14 +68,14 @@ class StorageMixIn:
 
         for (t, i), (metadata, name_hashed) in sorted(decryption_results.items(), key=lambda item: item[0][1]):
             match t:
-                case FolderItem.file:
+                case FolderItemType.file:
                     file_info = files_info[i].model_dump(exclude={'metadata'})
                     file_info['metadata'] = metadata
                     file_info['name_hashed'] = file_info.get('name_hashed', name_hashed)
                     file_info['trash'] = file_info.get('trash', trash)
                     files.append(FileInfo.model_validate(file_info))
 
-                case FolderItem.folder:
+                case FolderItemType.folder:
                     folder_info = folders_info[i].model_dump(exclude={'name'})
                     folder_info['name'] = metadata.name
                     folder_info['name_hashed'] = folder_info.get('name_hashed', name_hashed)
@@ -117,10 +126,10 @@ class Storage(RepoBase, StorageMixIn):
 
         with self._runner.task_group() as tg:
             for i, file in enumerate(folder_content.uploads):
-                tg.add_task((FolderItem.file, i), self._decrypt_file_metadata, file.metadata, master_keys)
+                tg.add_task((FolderItemType.file, i), self._decrypt_file_metadata, file.metadata, master_keys)
 
             for i, folder in enumerate(folder_content.folders):
-                tg.add_task((FolderItem.folder, i), self._decrypt_folder_metadata, folder.name, master_keys)
+                tg.add_task((FolderItemType.folder, i), self._decrypt_folder_metadata, folder.name, master_keys)
 
         trash = uuid == FolderContentType.trash
         return self._collect_folder_content(folder_content.uploads, folder_content.folders, tg.results, trash=trash)
@@ -135,16 +144,28 @@ class Storage(RepoBase, StorageMixIn):
 
         with self._runner.task_group() as tg:
             for i, file in enumerate(folder_download.files):
-                tg.add_task((FolderItem.file, i), self._decrypt_file_metadata, file.metadata, master_keys)
+                tg.add_task((FolderItemType.file, i), self._decrypt_file_metadata, file.metadata, master_keys)
 
             for i, folder in enumerate(folder_download.folders):
                 if folder.uuid != self._context.base_folder_uuid:
-                    tg.add_task((FolderItem.folder, i), self._decrypt_folder_metadata, folder.name, master_keys)
+                    tg.add_task((FolderItemType.folder, i), self._decrypt_folder_metadata, folder.name, master_keys)
                 else:
                     folder.metadata = ''
                     folder.name_hashed = ''
 
         return self._collect_folder_content(folder_download.files, folder_download.folders, tg.results)
+
+    def folder_exists(self, name: str, parent: UUID | None = None) -> StorageItemExists:
+        """Check if a forlder exists"""
+
+        if parent is None:
+            parent = self._ensure_base_folder_uuid()
+
+        name_hashed = hash_name(name, self._context.auth_version)
+
+        return self._api.v3.dir.exists(
+            StorageItemExistsRequestData(parent=parent, name_hashed=name_hashed),
+        ).data_as(StorageItemExists, type=StorageItemType.folder)
 
     def create_folder(self, name: str, parent: UUID | None = None) -> CreateFolderInfo:
         """Create a new folder in the cloud storage"""
@@ -170,6 +191,18 @@ class Storage(RepoBase, StorageMixIn):
             parent=parent,
         )
         return self._api.v3.dir.create(data).data_as(CreateFolderInfo)
+
+    def file_exists(self, name: str, parent: UUID | None = None) -> StorageItemExists:
+        """Check if a file exists"""
+
+        if parent is None:
+            parent = self._ensure_base_folder_uuid()
+
+        name_hashed = hash_name(name, self._context.auth_version)
+
+        return self._api.v3.file.exists(
+            StorageItemExistsRequestData(parent=parent, name_hashed=name_hashed),
+        ).data_as(StorageItemExists, type=StorageItemType.file)
 
     def file_info(self, uuid: ItemId) -> FileInfo:
         """Return the file info"""
@@ -213,10 +246,10 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
 
         async with self._runner.task_group() as tg:
             for i, file in enumerate(folder_content.uploads):
-                tg.add_task((FolderItem.file, i), self._decrypt_file_metadata, file.metadata, master_keys)
+                tg.add_task((FolderItemType.file, i), self._decrypt_file_metadata, file.metadata, master_keys)
 
             for i, folder in enumerate(folder_content.folders):
-                tg.add_task((FolderItem.folder, i), self._decrypt_folder_metadata, folder.name, master_keys)
+                tg.add_task((FolderItemType.folder, i), self._decrypt_folder_metadata, folder.name, master_keys)
 
         trash = uuid == FolderContentType.trash
         return self._collect_folder_content(folder_content.uploads, folder_content.folders, tg.results, trash=trash)
@@ -229,16 +262,26 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
 
         async with self._runner.task_group() as tg:
             for i, file in enumerate(folder_download.files):
-                tg.add_task((FolderItem.file, i), self._decrypt_file_metadata, file.metadata, master_keys)
+                tg.add_task((FolderItemType.file, i), self._decrypt_file_metadata, file.metadata, master_keys)
 
             for i, folder in enumerate(folder_download.folders):
                 if folder.uuid != self._context.base_folder_uuid:
-                    tg.add_task((FolderItem.folder, i), self._decrypt_folder_metadata, folder.name, master_keys)
+                    tg.add_task((FolderItemType.folder, i), self._decrypt_folder_metadata, folder.name, master_keys)
                 else:
                     folder.name = ''
                     folder.name_hashed = ''
 
         return self._collect_folder_content(folder_download.files, folder_download.folders, tg.results)
+
+    async def folder_exists(self, name: str, parent: UUID | None = None) -> StorageItemExists:
+        if parent is None:
+            parent = await self._ensure_base_folder_uuid()
+
+        name_hashed = await self._runner.run_sync(hash_name, name, self._context.auth_version)
+
+        return (
+            await self._api.v3.dir.exists(StorageItemExistsRequestData(parent=parent, name_hashed=name_hashed))
+        ).data_as(StorageItemExists, type=StorageItemType.folder)
 
     async def create_folder(self, name: str, parent: UUID | None = None) -> CreateFolderInfo:
         self.check_name(name)
@@ -262,6 +305,16 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
             parent=parent,
         )
         return (await self._api.v3.dir.create(data)).data_as(CreateFolderInfo)
+
+    async def file_exists(self, name: str, parent: UUID | None = None) -> StorageItemExists:
+        if parent is None:
+            parent = await self._ensure_base_folder_uuid()
+
+        name_hashed = await self._runner.run_sync(hash_name, name, self._context.auth_version)
+
+        return (
+            await self._api.v3.file.exists(StorageItemExistsRequestData(parent=parent, name_hashed=name_hashed))
+        ).data_as(StorageItemExists, type=StorageItemType.file)
 
     async def file_info(self, uuid: ItemId) -> FileInfo:
         master_keys = await self._ensure_master_keys()

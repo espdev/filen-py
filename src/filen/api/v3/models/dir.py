@@ -6,12 +6,12 @@ from pydantic import BaseModel, BeforeValidator
 
 from filen.config import FileEncryptionVersion
 
-from .base import RequestData, ResponseData, ValidationAliasedModel
+from .base import RequestData, ResponseData, StorageItemExists, ValidationAliasedModel
 
 ROOT_PARENT: Final = 'base'
 
 
-class FolderItem(StrEnum):
+class FolderItemType(StrEnum):
     file = auto()
     folder = auto()
 
@@ -123,3 +123,6 @@ class FolderCreated(ValidationAliasedModel):
 
 
 class FolderCreateResponseData(ResponseData[FolderCreated]): ...
+
+
+class FolderExistsResponseData(ResponseData[StorageItemExists]): ...

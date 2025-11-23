@@ -3,7 +3,7 @@ from datetime import timedelta
 from uuid import UUID
 
 from httpx import Response
-from pydantic import AliasGenerator, BaseModel, ConfigDict, ValidationError
+from pydantic import AliasGenerator, BaseModel, ConfigDict, ValidationError, field_validator
 from pydantic.alias_generators import to_camel
 
 from filen.errors import RequestFailedError, ResponseParseError
@@ -35,6 +35,23 @@ class RequestData(RequestModelBase, SerializationAliasedModel):
 
 class StorageItemUUIDRequestData(RequestData):
     uuid: UUID
+
+
+class StorageItemExistsRequestData(RequestData):
+    parent: UUID
+    name_hashed: str
+
+
+class StorageItemExists(BaseModel):
+    uuid: UUID | None
+    exists: bool
+
+    @field_validator('uuid', mode='before')
+    @classmethod
+    def _validate_uuid(cls, v):
+        if not v:
+            return None
+        return v
 
 
 class ResponseModel(ResponseModelBase):
@@ -74,5 +91,7 @@ class ResponseData[TData: ValidationAliasedModel](ResponseModel):
 
     data: TData | list[TData] | None = None
 
-    def data_as[T](self, model: Type[BaseModel]) -> T:
-        return model.model_validate(self.data)
+    def data_as[T](self, model: Type[BaseModel], **extra_fields) -> T:
+        if not extra_fields:
+            return model.model_validate(self.data)
+        return model(**self.data.model_dump(), **extra_fields)

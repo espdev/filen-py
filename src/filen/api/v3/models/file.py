@@ -2,7 +2,7 @@ from uuid import UUID
 
 from filen.config import FileEncryptionVersion
 
-from .base import ResponseData, ValidationAliasedModel
+from .base import ResponseData, StorageItemExists, ValidationAliasedModel
 
 
 class FileInfo(ValidationAliasedModel):
@@ -20,3 +20,6 @@ class FileInfo(ValidationAliasedModel):
 
 
 class FileInfoResponseData(ResponseData[FileInfo]): ...
+
+
+class FileExistsResponseData(ResponseData[StorageItemExists]): ...

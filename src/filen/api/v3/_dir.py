@@ -1,11 +1,12 @@
 from .._base import APIBase, APIEndpoint, AsyncAPIBase
-from .models.base import StorageItemUUIDRequestData
+from .models.base import StorageItemExistsRequestData, StorageItemUUIDRequestData
 from .models.dir import (
     FolderContentRequestData,
     FolderContentResponseData,
     FolderCreateRequestData,
     FolderCreateResponseData,
     FolderDownloadResponseData,
+    FolderExistsResponseData,
     FolderInfoResponseData,
 )
 
@@ -14,6 +15,7 @@ class DirEndpoint(APIEndpoint):
     info = '/dir'
     content = '/dir/content'
     download = '/dir/download'
+    exists = '/dir/exists'
     create = '/dir/create'
 
 
@@ -28,6 +30,9 @@ class DirAPI(APIBase):
 
     def download(self, data: StorageItemUUIDRequestData) -> FolderDownloadResponseData:
         return self._post(DirEndpoint.download, data, FolderDownloadResponseData)
+
+    def exists(self, data: StorageItemExistsRequestData) -> FolderExistsResponseData:
+        return self._post(DirEndpoint.exists, data, FolderExistsResponseData)
 
     def create(self, data: FolderCreateRequestData) -> FolderCreateResponseData:
         return self._post(DirEndpoint.create, data, FolderCreateResponseData)
@@ -44,6 +49,9 @@ class AsyncDirAPI(AsyncAPIBase):
 
     async def download(self, data: StorageItemUUIDRequestData) -> FolderDownloadResponseData:
         return await self._post(DirEndpoint.download, data, FolderDownloadResponseData)
+
+    async def exists(self, data: StorageItemExistsRequestData) -> FolderExistsResponseData:
+        return await self._post(DirEndpoint.exists, data, FolderExistsResponseData)
 
     async def create(self, data: FolderCreateRequestData) -> FolderCreateResponseData:
         return await self._post(DirEndpoint.create, data, FolderCreateResponseData)
