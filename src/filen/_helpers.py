@@ -3,7 +3,7 @@ from typing import Protocol, Self, Type
 
 class FactoryProtocol[T](Protocol):
     def _create(self, obj_type: Type[T]) -> T:
-        pass
+        """Create an instance of object type"""
 
 
 class FactoryDescriptor[T]:
