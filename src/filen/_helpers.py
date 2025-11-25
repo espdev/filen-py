@@ -1,4 +1,5 @@
 from typing import Protocol, Self, Type
+from weakref import WeakKeyDictionary
 
 
 class FactoryProtocol[T](Protocol):
@@ -11,7 +12,7 @@ class FactoryDescriptor[T]:
 
     def __init__(self, obj_type: Type[T]) -> None:
         self._obj_type = obj_type
-        self._objects: dict[int, T] = {}
+        self._objects: WeakKeyDictionary[FactoryProtocol[T], T] = WeakKeyDictionary()
 
     def __get__(
         self,
@@ -21,10 +22,7 @@ class FactoryDescriptor[T]:
         if owner is None:
             return self
 
-        # The descriptor can be used with several owner instances
-        _id = id(owner)
+        if owner not in self._objects:
+            self._objects[owner] = owner._create(self._obj_type)  # noqa
 
-        if _id not in self._objects:
-            self._objects[_id] = owner._create(self._obj_type)  # noqa
-
-        return self._objects[_id]
+        return self._objects[owner]
