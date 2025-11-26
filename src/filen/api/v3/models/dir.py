@@ -12,11 +12,6 @@ from .link import PublicLinkExpiration, PublicLinkStatus
 ROOT_PARENT: Final = 'base'
 
 
-class FolderItemType(StrEnum):
-    file = auto()
-    folder = auto()
-
-
 class FolderContentType(StrEnum):
     favorites = auto()
     recents = auto()

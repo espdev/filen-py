@@ -9,7 +9,6 @@ from filen.api.v3.models.dir import (
     FolderContentRequestData,
     FolderContentType,
     FolderCreateRequestData,
-    FolderItemType,
 )
 from filen.config import FILEN_PUBLIC_FILE_LINK_BASE_URL, FILEN_PUBLIC_FOLDER_LINK_BASE_URL
 from filen.crypto import decrypt_metadata, decrypt_metadata_model, encrypt_metadata_model, hash_name
@@ -71,14 +70,14 @@ class StorageMixIn:
 
         for (t, i), (metadata, name_hashed) in sorted(decryption_results.items(), key=lambda item: item[0][1]):
             match t:
-                case FolderItemType.file:
+                case StorageItemType.file:
                     file_info = files_info[i].model_dump(exclude={'metadata'})
                     file_info['metadata'] = metadata
                     file_info['name_hashed'] = file_info.get('name_hashed', name_hashed)
                     file_info['trash'] = file_info.get('trash', trash)
                     files.append(FileInfo.model_validate(file_info))
 
-                case FolderItemType.folder:
+                case StorageItemType.folder:
                     folder_info = folders_info[i].model_dump(exclude={'name'})
                     folder_info['name'] = metadata.name
                     folder_info['name_hashed'] = folder_info.get('name_hashed', name_hashed)
@@ -129,10 +128,10 @@ class Storage(RepoBase, StorageMixIn):
 
         with self._runner.task_group() as tg:
             for i, file in enumerate(folder_content.uploads):
-                tg.add_task((FolderItemType.file, i), self._decrypt_file_metadata, file.metadata, master_keys)
+                tg.add_task((StorageItemType.file, i), self._decrypt_file_metadata, file.metadata, master_keys)
 
             for i, folder in enumerate(folder_content.folders):
-                tg.add_task((FolderItemType.folder, i), self._decrypt_folder_metadata, folder.name, master_keys)
+                tg.add_task((StorageItemType.folder, i), self._decrypt_folder_metadata, folder.name, master_keys)
 
         trash = uuid == FolderContentType.trash
         return self._collect_folder_content(folder_content.uploads, folder_content.folders, tg.results, trash=trash)
@@ -147,11 +146,11 @@ class Storage(RepoBase, StorageMixIn):
 
         with self._runner.task_group() as tg:
             for i, file in enumerate(folder_download.files):
-                tg.add_task((FolderItemType.file, i), self._decrypt_file_metadata, file.metadata, master_keys)
+                tg.add_task((StorageItemType.file, i), self._decrypt_file_metadata, file.metadata, master_keys)
 
             for i, folder in enumerate(folder_download.folders):
                 if folder.uuid != self._context.base_folder_uuid:
-                    tg.add_task((FolderItemType.folder, i), self._decrypt_folder_metadata, folder.name, master_keys)
+                    tg.add_task((StorageItemType.folder, i), self._decrypt_folder_metadata, folder.name, master_keys)
                 else:
                     folder.metadata = ''
                     folder.name_hashed = ''
@@ -282,10 +281,10 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
 
         async with self._runner.task_group() as tg:
             for i, file in enumerate(folder_content.uploads):
-                tg.add_task((FolderItemType.file, i), self._decrypt_file_metadata, file.metadata, master_keys)
+                tg.add_task((StorageItemType.file, i), self._decrypt_file_metadata, file.metadata, master_keys)
 
             for i, folder in enumerate(folder_content.folders):
-                tg.add_task((FolderItemType.folder, i), self._decrypt_folder_metadata, folder.name, master_keys)
+                tg.add_task((StorageItemType.folder, i), self._decrypt_folder_metadata, folder.name, master_keys)
 
         trash = uuid == FolderContentType.trash
         return self._collect_folder_content(folder_content.uploads, folder_content.folders, tg.results, trash=trash)
@@ -298,11 +297,11 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
 
         async with self._runner.task_group() as tg:
             for i, file in enumerate(folder_download.files):
-                tg.add_task((FolderItemType.file, i), self._decrypt_file_metadata, file.metadata, master_keys)
+                tg.add_task((StorageItemType.file, i), self._decrypt_file_metadata, file.metadata, master_keys)
 
             for i, folder in enumerate(folder_download.folders):
                 if folder.uuid != self._context.base_folder_uuid:
-                    tg.add_task((FolderItemType.folder, i), self._decrypt_folder_metadata, folder.name, master_keys)
+                    tg.add_task((StorageItemType.folder, i), self._decrypt_folder_metadata, folder.name, master_keys)
                 else:
                     folder.name = ''
                     folder.name_hashed = ''
