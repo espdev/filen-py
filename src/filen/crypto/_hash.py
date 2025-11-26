@@ -1,4 +1,4 @@
-from typing import Final
+from typing import Final, NamedTuple
 from base64 import b64decode
 from hashlib import sha1, sha256, sha512
 import hmac
@@ -6,9 +6,10 @@ import hmac
 from cryptography.hazmat.primitives.hashes import SHA256
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
-from filen.config import AuthVersion
+from filen.config import PUBLIC_LINK_VERSION, AuthVersion, PublicLinkVersion
 
-from ._base import backend
+from ._base import backend, create_pbkdf2hmac_sha512
+from ._utils import generate_random_string
 
 HMAC_KEY_LENGTH: Final = 32
 
@@ -56,3 +57,46 @@ def hash_name(name: str, auth_version: AuthVersion | int, hmac_key: bytes | None
 
         case _:
             raise NotImplementedError(f'Hashing names is not implemented for auth version {auth_version.value}')
+
+
+class HashedPasswordAndSalt(NamedTuple):
+    password_hashed: str
+    salt: str
+
+
+def hash_public_link_password(
+    password: str | None,
+    public_link_version: PublicLinkVersion = PUBLIC_LINK_VERSION,
+) -> HashedPasswordAndSalt:
+    """Hash public link password and return password and salt"""
+
+    match public_link_version:
+        case PublicLinkVersion.v1:
+            password_hashed = combined_sha_hash_func(password) if password else 'empty'
+
+            return HashedPasswordAndSalt(
+                password_hashed=password_hashed,
+                salt='',
+            )
+
+        case PublicLinkVersion.v2:
+            salt = generate_random_string(32)
+            deriver = create_pbkdf2hmac_sha512(
+                length=64,
+                salt=salt.encode(),
+                iterations=200_000,
+            )
+            password_hashed = deriver.derive(password.encode()).hex() if password else 'empty'
+
+            return HashedPasswordAndSalt(
+                password_hashed=password_hashed,
+                salt=salt,
+            )
+
+        # case PublicLinkVersion.v3:
+        #     salt = generate_random_hex_string(256)
+
+        case _:
+            raise NotImplementedError(
+                f'Hashing of public link password is not implemented for public link version {public_link_version}'
+            )

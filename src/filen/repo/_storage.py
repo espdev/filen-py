@@ -1,4 +1,4 @@
-from typing import Final
+from typing import Final, Literal
 import os
 from urllib.parse import quote
 from uuid import UUID, uuid4
@@ -6,12 +6,25 @@ from uuid import UUID, uuid4
 from filen._context import Context
 from filen.api.v3.models import StorageItemExistsRequestData, StorageItemUUIDRequestData
 from filen.api.v3.models.dir import (
+    BASE_PARENT,
     FolderContentRequestData,
     FolderContentType,
     FolderCreateRequestData,
+    FolderPublicLinkAddRequestData,
+    FolderPublicLinkEditRequestData,
 )
-from filen.config import FILEN_PUBLIC_FILE_LINK_BASE_URL, FILEN_PUBLIC_FOLDER_LINK_BASE_URL
-from filen.crypto import decrypt_metadata, decrypt_metadata_model, encrypt_metadata_model, hash_name
+from filen.api.v3.models.file import FilePublicLinkEditRequestData
+from filen.api.v3.models.link import PublicLinkExpiration
+from filen.config import FILEN_PUBLIC_FILE_LINK_BASE_URL, FILEN_PUBLIC_FOLDER_LINK_BASE_URL, STORAGE_ROOT_NAME
+from filen.crypto import (
+    decrypt_metadata,
+    decrypt_metadata_model,
+    encrypt_metadata,
+    encrypt_metadata_model,
+    generate_metadata_encryption_key,
+    hash_name,
+    hash_public_link_password,
+)
 from filen.errors import StorageError
 
 from ._base import AsyncRepoBase, RepoBase
@@ -58,9 +71,18 @@ class StorageMixIn:
         name_hashed = hash_name(metadata.name, self._context.auth_version)
         return metadata, name_hashed
 
-    def _decrypt_folder_metadata(self, metadata: str, keys: str | list[str]) -> tuple[FolderMetadata, str]:
-        metadata = decrypt_metadata_model(FolderMetadata, metadata, keys)
-        name_hashed = hash_name(metadata.name, self._context.auth_version)
+    def _decrypt_folder_metadata(
+        self,
+        metadata: str,
+        keys: str | list[str],
+        is_root: bool = False,
+    ) -> tuple[FolderMetadata, str]:
+        if is_root:
+            metadata = FolderMetadata(name=STORAGE_ROOT_NAME)
+            name_hashed = STORAGE_ROOT_NAME
+        else:
+            metadata = decrypt_metadata_model(FolderMetadata, metadata, keys)
+            name_hashed = hash_name(metadata.name, self._context.auth_version)
         return metadata, name_hashed
 
     @staticmethod
@@ -88,6 +110,12 @@ class StorageMixIn:
             files=files,
             folders=folders,
         )
+
+    @staticmethod
+    def _get_password_hash_and_salt(password: str | None) -> tuple[bool, str, str]:
+        has_password = bool(password)
+        password_hashed, salt = hash_public_link_password(password)
+        return has_password, password_hashed, salt
 
 
 class Storage(RepoBase, StorageMixIn):
@@ -149,11 +177,14 @@ class Storage(RepoBase, StorageMixIn):
                 tg.add_task((StorageItemType.file, i), self._decrypt_file_metadata, file.metadata, master_keys)
 
             for i, folder in enumerate(folder_download.folders):
-                if folder.uuid != self._context.base_folder_uuid:
-                    tg.add_task((StorageItemType.folder, i), self._decrypt_folder_metadata, folder.name, master_keys)
-                else:
-                    folder.metadata = ''
-                    folder.name_hashed = ''
+                is_root = folder.uuid == self._context.base_folder_uuid
+                tg.add_task(
+                    (StorageItemType.folder, i),
+                    self._decrypt_folder_metadata,
+                    folder.name,
+                    master_keys,
+                    is_root=is_root,
+                )
 
         return self._collect_folder_content(folder_download.files, folder_download.folders, tg.results)
 
@@ -166,7 +197,10 @@ class Storage(RepoBase, StorageMixIn):
         name_hashed = hash_name(name, self._context.auth_version)
 
         return self._api.v3.dir.exists(
-            StorageItemExistsRequestData(parent=parent, name_hashed=name_hashed),
+            StorageItemExistsRequestData(
+                parent=parent,
+                name_hashed=name_hashed,
+            ),
         ).data_as(StorageItemExists, type=StorageItemType.folder)
 
     def create_folder(self, name: str, parent: UUID | None = None) -> CreateFolderInfo:
@@ -216,7 +250,7 @@ class Storage(RepoBase, StorageMixIn):
 
         return FileInfo(**file_info.model_dump(exclude={'metadata'}), metadata=metadata)
 
-    def link_status(self, uuid: ItemId, link_type: StorageItemType | str | None = None) -> PublicLinkStatus:
+    def public_link_status(self, uuid: ItemId, link_type: StorageItemType | str | None = None) -> PublicLinkStatus:
         data = StorageItemUUIDRequestData(uuid=uuid)
 
         match link_type:
@@ -233,7 +267,7 @@ class Storage(RepoBase, StorageMixIn):
                     link_type = StorageItemType.folder
 
         if not response.data or not response.data.exists:
-            return PublicLinkStatus.not_exist()
+            return PublicLinkStatus.not_exist(link_type=link_type, item_uuid=uuid)
 
         if link_type == StorageItemType.file:
             file_info = self.file_info(uuid)
@@ -247,7 +281,138 @@ class Storage(RepoBase, StorageMixIn):
         link_path = quote(f'{response.data.uuid}#{key}')
         link = f'{link_base_url}/{link_path}'
 
-        return response.data_as(PublicLinkStatus, type=link_type, key=key, link=link)
+        return response.data_as(PublicLinkStatus, item_uuid=uuid, type=link_type, key=key, link=link)
+
+    def edit_file_public_link(
+        self,
+        link_uuid: ItemId,
+        file_uuid: ItemId,
+        action: Literal['enable', 'disable'] = 'enable',
+        expiration: PublicLinkExpiration = 'never',
+        password: str | None = None,
+        download_btn: bool = True,
+    ) -> PublicLinkStatus:
+        has_password, password_hashed, salt = self._get_password_hash_and_salt(password)
+
+        link_edit_data = FilePublicLinkEditRequestData(
+            uuid=file_uuid,
+            link_uuid=link_uuid,
+            expiration=expiration,
+            has_password=has_password,
+            password_hashed=password_hashed,
+            salt=salt,
+            download_btn=download_btn,
+            type=action,
+        )
+        self._api.v3.file.link_edit(link_edit_data)
+        return self.public_link_status(file_uuid, StorageItemType.file)
+
+    def edit_folder_public_link(
+        self,
+        folder_uuid: ItemId,
+        expiration: PublicLinkExpiration = 'never',
+        password: str | None = None,
+        download_btn: bool = True,
+    ) -> PublicLinkStatus:
+        has_password, password_hashed, salt = self._get_password_hash_and_salt(password)
+
+        link_edit_data = FolderPublicLinkEditRequestData(
+            uuid=folder_uuid,
+            expiration=expiration,
+            has_password=has_password,
+            password_hashed=password_hashed,
+            salt=salt,
+            download_btn=download_btn,
+        )
+        self._api.v3.dir.link_edit(link_edit_data)
+        return self.public_link_status(folder_uuid, StorageItemType.folder)
+
+    def create_public_link(
+        self,
+        uuid: ItemId,
+        link_type: StorageItemType,
+        expiration: PublicLinkExpiration = 'never',
+        password: str | None = None,
+        download_btn: bool = True,
+    ) -> PublicLinkStatus:
+        """Creates a public link for a file or folder"""
+
+        if uuid == self._ensure_base_folder_uuid():
+            raise StorageError('A public link cannot be created for the storage root folder.')
+
+        link_uuid = uuid4()
+
+        if link_type == StorageItemType.file:
+            file_info = self.file_info(uuid)
+
+            return self.edit_file_public_link(
+                link_uuid=link_uuid,
+                file_uuid=file_info.uuid,
+                action='enable',
+                expiration=expiration,
+                password=password,
+                download_btn=download_btn,
+            )
+
+        else:
+            if self.public_link_status(uuid, link_type):
+                self.remove_folder_public_link(uuid)
+
+            folder_tree = self.folder_download(uuid)
+            all_items = folder_tree.folders + folder_tree.files
+
+            master_key = self._ensure_master_key()
+            link_key = generate_metadata_encryption_key()
+            link_key_enc = encrypt_metadata(link_key, master_key)
+
+            with self._runner.task_group() as tg:
+                for i, item in enumerate(all_items):
+                    tg.add_task(
+                        task_id=i,
+                        func=self._add_item_to_directory_public_link,
+                        item=item,
+                        link_uuid=link_uuid,
+                        key=link_key,
+                        key_enc=link_key_enc,
+                        expiration=expiration,
+                    )
+
+            return self.edit_folder_public_link(
+                folder_uuid=uuid,
+                expiration=expiration,
+                password=password,
+                download_btn=download_btn,
+            )
+
+    def remove_folder_public_link(self, item_uuid: ItemId) -> None:
+        self._api.v3.dir.link_remove(StorageItemUUIDRequestData(uuid=item_uuid))
+
+    def _add_item_to_directory_public_link(
+        self,
+        item: FileInfo | FolderInfo,
+        link_uuid: UUID,
+        key: str,
+        key_enc: str,
+        expiration: PublicLinkExpiration,
+    ) -> None:
+        if item.type == 'folder':
+            metadata = FolderMetadata(name=item.name)
+        else:
+            metadata = item.metadata
+
+        metadata_enc = encrypt_metadata_model(metadata, key)
+
+        link_add_data = FolderPublicLinkAddRequestData(
+            uuid=item.uuid,
+            parent=item.parent or BASE_PARENT,
+            link_uuid=link_uuid,
+            type=item.type,
+            metadata=metadata_enc,
+            key=key_enc,
+            expiration=expiration,
+        )
+
+        self._api.v3.dir.link_add(link_add_data)
 
 
 class AsyncStorage(AsyncRepoBase, StorageMixIn):
@@ -300,11 +465,14 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
                 tg.add_task((StorageItemType.file, i), self._decrypt_file_metadata, file.metadata, master_keys)
 
             for i, folder in enumerate(folder_download.folders):
-                if folder.uuid != self._context.base_folder_uuid:
-                    tg.add_task((StorageItemType.folder, i), self._decrypt_folder_metadata, folder.name, master_keys)
-                else:
-                    folder.name = ''
-                    folder.name_hashed = ''
+                is_root = folder.uuid == self._context.base_folder_uuid
+                tg.add_task(
+                    (StorageItemType.folder, i),
+                    self._decrypt_folder_metadata,
+                    folder.name,
+                    master_keys,
+                    is_root=is_root,
+                )
 
         return self._collect_folder_content(folder_download.files, folder_download.folders, tg.results)
 
@@ -315,7 +483,12 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
         name_hashed = await self._runner.run_sync(hash_name, name, self._context.auth_version)
 
         return (
-            await self._api.v3.dir.exists(StorageItemExistsRequestData(parent=parent, name_hashed=name_hashed))
+            await self._api.v3.dir.exists(
+                StorageItemExistsRequestData(
+                    parent=parent,
+                    name_hashed=name_hashed,
+                ),
+            )
         ).data_as(StorageItemExists, type=StorageItemType.folder)
 
     async def create_folder(self, name: str, parent: UUID | None = None) -> CreateFolderInfo:
@@ -359,7 +532,11 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
 
         return FileInfo(**file_info.model_dump(exclude={'metadata'}), metadata=metadata)
 
-    async def link_status(self, uuid: ItemId, link_type: StorageItemType | str | None = None) -> PublicLinkStatus:
+    async def public_link_status(
+        self,
+        uuid: ItemId,
+        link_type: StorageItemType | str | None = None,
+    ) -> PublicLinkStatus:
         data = StorageItemUUIDRequestData(uuid=uuid)
 
         match link_type:
@@ -376,7 +553,7 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
                     link_type = StorageItemType.folder
 
         if not response.data or not response.data.exists:
-            return PublicLinkStatus.not_exist()
+            return PublicLinkStatus.not_exist(link_type=link_type, item_uuid=uuid)
 
         if link_type == StorageItemType.file:
             file_info = await self.file_info(uuid)
@@ -390,4 +567,137 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
         link_path = quote(f'{response.data.uuid}#{key}')
         link = f'{link_base_url}/{link_path}'
 
-        return response.data_as(PublicLinkStatus, type=link_type, key=key, link=link)
+        return response.data_as(PublicLinkStatus, item_uuid=uuid, type=link_type, key=key, link=link)
+
+    async def edit_file_public_link(
+        self,
+        link_uuid: ItemId,
+        file_uuid: ItemId,
+        action: Literal['enable', 'disable'] = 'enable',
+        expiration: PublicLinkExpiration = 'never',
+        password: str | None = None,
+        download_btn: bool = True,
+    ) -> PublicLinkStatus:
+        has_password, password_hashed, salt = self._get_password_hash_and_salt(password)
+
+        link_edit_data = FilePublicLinkEditRequestData(
+            uuid=file_uuid,
+            link_uuid=link_uuid,
+            expiration=expiration,
+            has_password=has_password,
+            password_hashed=password_hashed,
+            salt=salt,
+            download_btn=download_btn,
+            type=action,
+        )
+
+        await self._api.v3.file.link_edit(link_edit_data)
+        return await self.public_link_status(file_uuid, StorageItemType.file)
+
+    async def edit_folder_public_link(
+        self,
+        folder_uuid: ItemId,
+        expiration: PublicLinkExpiration = 'never',
+        password: str | None = None,
+        download_btn: bool = True,
+    ) -> PublicLinkStatus:
+        has_password, password_hashed, salt = self._get_password_hash_and_salt(password)
+
+        link_edit_data = FolderPublicLinkEditRequestData(
+            uuid=folder_uuid,
+            expiration=expiration,
+            has_password=has_password,
+            password_hashed=password_hashed,
+            salt=salt,
+            download_btn=download_btn,
+        )
+
+        await self._api.v3.dir.link_edit(link_edit_data)
+        return await self.public_link_status(folder_uuid, StorageItemType.folder)
+
+    async def create_public_link(
+        self,
+        uuid: ItemId,
+        link_type: StorageItemType,
+        expiration: PublicLinkExpiration = 'never',
+        password: str | None = None,
+        download_btn: bool = True,
+    ) -> PublicLinkStatus:
+        """Creates a public link for a file or folder"""
+
+        if uuid == (await self._ensure_base_folder_uuid()):
+            raise StorageError('A public link cannot be created for the storage root folder.')
+
+        link_uuid = uuid4()
+
+        if link_type == StorageItemType.file:
+            file_info = await self.file_info(uuid)
+
+            return await self.edit_file_public_link(
+                link_uuid=link_uuid,
+                action='enable',
+                file_uuid=file_info.uuid,
+                expiration=expiration,
+                password=password,
+                download_btn=download_btn,
+            )
+
+        else:
+            if await self.public_link_status(uuid, link_type):
+                await self.remove_folder_public_link(uuid)
+
+            folder_tree = await self.folder_download(uuid)
+            all_items = folder_tree.folders + folder_tree.files
+
+            master_key = await self._ensure_master_key()
+            link_key = generate_metadata_encryption_key()
+            link_key_enc = await self._runner.run_sync(encrypt_metadata, link_key, master_key)
+
+            async with self._runner.task_group() as tg:
+                for i, item in enumerate(all_items):
+                    tg.add_task(
+                        task_id=i,
+                        func=self._add_item_to_directory_public_link,
+                        item=item,
+                        link_uuid=link_uuid,
+                        key=link_key,
+                        key_enc=link_key_enc,
+                        expiration=expiration,
+                    )
+
+            return await self.edit_folder_public_link(
+                folder_uuid=uuid,
+                expiration=expiration,
+                password=password,
+                download_btn=download_btn,
+            )
+
+    async def remove_folder_public_link(self, item_uuid: ItemId) -> None:
+        await self._api.v3.dir.link_remove(StorageItemUUIDRequestData(uuid=item_uuid))
+
+    async def _add_item_to_directory_public_link(
+        self,
+        item: FileInfo | FolderInfo,
+        link_uuid: UUID,
+        key: str,
+        key_enc: str,
+        expiration: PublicLinkExpiration,
+    ) -> None:
+        if item.type == 'folder':
+            metadata = FolderMetadata(name=item.name)
+        else:
+            metadata = item.metadata
+
+        metadata_enc = await self._runner.run_sync(encrypt_metadata_model, metadata, key)
+
+        link_add_data = FolderPublicLinkAddRequestData(
+            uuid=item.uuid,
+            parent=item.parent or BASE_PARENT,
+            link_uuid=link_uuid,
+            type=item.type,
+            metadata=metadata_enc,
+            key=key_enc,
+            expiration=expiration,
+        )
+
+        await self._api.v3.dir.link_add(link_add_data)

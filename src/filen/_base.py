@@ -1,11 +1,11 @@
 from typing import Self, Type
 from abc import ABC, abstractmethod
 
-from httpx import AsyncClient, Client, Timeout
+from httpx import AsyncClient, Client, Limits, Timeout
 
 from filen._context import Context
 from filen.api import AsyncFilenAPI, FilenAPI
-from filen.config import FilenConfig
+from filen.config import DEFAULT_MAX_KEEPALIVE_CONNECTIONS, FilenConfig
 from filen.repo import AsyncEnsureContextMixIn, AsyncRepoBase, EnsureContextMixIn, RepoBase, RepoFactoryMixIn
 from filen.runners import AsyncRunnerBase, AsyncThreadRunner, RunnerBase, ThreadRunner
 
@@ -31,12 +31,10 @@ class FilenClientGenericBase[
         self._runner = runner or self._create_default_runner()
         self._owns_runner = runner is None
 
-        self._http_client = http_client or self._create_client()
+        self._http_client = http_client or self._create_client(config)
         self._owns_http_client = http_client is None
 
-        if self._owns_http_client:
-            self._http_client.timeout = config.request_timeout
-        else:
+        if not self._owns_http_client:
             self._http_client.base_url = self._context.api_url
 
         self._api = self._create_api()
@@ -58,7 +56,7 @@ class FilenClientGenericBase[
         pass
 
     @abstractmethod
-    def _create_client(self) -> TClient:
+    def _create_client(self, config: FilenConfig) -> TClient:
         pass
 
     @abstractmethod
@@ -82,8 +80,15 @@ class FilenClientBase(
     def _create_default_runner(self) -> RunnerBase:
         return ThreadRunner()
 
-    def _create_client(self) -> Client:
-        return Client(base_url=self._context.api_url)
+    def _create_client(self, config: FilenConfig) -> Client:
+        return Client(
+            base_url=str(config.api_url),
+            timeout=config.request_timeout,
+            limits=Limits(
+                max_connections=config.max_connections,
+                max_keepalive_connections=min(DEFAULT_MAX_KEEPALIVE_CONNECTIONS, config.max_connections),
+            ),
+        )
 
     def _create_api(self) -> FilenAPI:
         return FilenAPI(self._context, self._http_client)
@@ -114,8 +119,15 @@ class AsyncFilenClientBase(
     def _create_default_runner(self) -> AsyncRunnerBase:
         return AsyncThreadRunner()
 
-    def _create_client(self) -> AsyncClient:
-        return AsyncClient(base_url=self._context.api_url)
+    def _create_client(self, config: FilenConfig) -> AsyncClient:
+        return AsyncClient(
+            base_url=str(config.api_url),
+            timeout=config.request_timeout,
+            limits=Limits(
+                max_connections=config.max_connections,
+                max_keepalive_connections=min(DEFAULT_MAX_KEEPALIVE_CONNECTIONS, config.max_connections),
+            ),
+        )
 
     def _create_api(self) -> AsyncFilenAPI:
         return AsyncFilenAPI(self._context, self._http_client)

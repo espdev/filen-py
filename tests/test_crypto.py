@@ -4,9 +4,8 @@ from cryptography.hazmat.primitives import serialization
 from pydantic import BaseModel
 import pytest
 
-from filen.config import AuthVersion
+from filen.config import AuthVersion, MetadataEncryptionVersion
 from filen.crypto import (
-    MetadataEncryptionVersion,
     create_der_keypair,
     current_metadata_cipher,
     decrypt_content,

@@ -1,12 +1,11 @@
 from typing import Final, NoReturn, Type
 from abc import ABC, abstractmethod
 from base64 import b64decode, b64encode
-from enum import StrEnum
-from functools import cached_property
 
 from cryptography.hazmat.primitives.ciphers import Cipher
 from pydantic import BaseModel, ValidationError
 
+from filen.config import METADATA_ENCRYPTION_VERSION, MetadataEncryptionVersion
 from filen.errors import (
     FilenError,
     MetadataDecryptError,
@@ -17,18 +16,6 @@ from filen.errors import (
 
 from ._base import create_aes_256_gcm_cipher, create_pbkdf2hmac_sha512
 from ._utils import generate_random_hex_string, generate_random_string
-
-
-class MetadataEncryptionVersion(StrEnum):
-    """All metadata encryption versions"""
-
-    v1 = 'U2FsdGVk'
-    v2 = '002'
-    v3 = '003'
-
-    @cached_property
-    def length(self) -> int:
-        return len(self.value)  # noqa
 
 
 class MetadataCipherBase(ABC):
@@ -57,7 +44,7 @@ class MetadataCipherNewBase(MetadataCipherBase):
     @classmethod
     def verify_encryption_version(cls, metadata: str, raise_error: bool = False) -> bool | NoReturn:
         enc_ver = metadata[: cls.ENCRYPTION_VERSION.length]
-        is_ok = enc_ver == cls.ENCRYPTION_VERSION
+        is_ok = enc_ver == cls.ENCRYPTION_VERSION.version_prefix
 
         if not is_ok and raise_error:
             raise MetadataEncryptionVersionError(f'Unsupported metadata encryption version {enc_ver}.')
@@ -89,7 +76,7 @@ class MetadataCipher002(MetadataCipherNewBase):
 
         data_b64 = b64encode(encrypted + auth_tag).decode()
 
-        return f'{self.ENCRYPTION_VERSION}{iv}{data_b64}'
+        return f'{self.ENCRYPTION_VERSION.version_prefix}{iv}{data_b64}'
 
     def decrypt(self, metadata: str) -> str:
         self.verify_encryption_version(metadata, raise_error=True)
@@ -144,7 +131,7 @@ class MetadataCipher003(MetadataCipherNewBase):
 
         data_b64 = b64encode(encrypted + auth_tag).decode()
 
-        return f'{self.ENCRYPTION_VERSION}{iv_hex}{data_b64}'
+        return f'{self.ENCRYPTION_VERSION.version_prefix}{iv_hex}{data_b64}'
 
     def decrypt(self, metadata: str) -> str:
         self.verify_encryption_version(metadata, raise_error=True)
@@ -183,14 +170,13 @@ metadata_ciphers: dict[MetadataEncryptionVersion, Type[MetadataCipherBase] | Non
     MetadataEncryptionVersion.v1: None,
 }
 
-current_metadata_encryption_version = MetadataEncryptionVersion.v2
-current_metadata_cipher = metadata_ciphers[current_metadata_encryption_version]
+current_metadata_cipher = metadata_ciphers[METADATA_ENCRYPTION_VERSION]
 
 
 def encrypt_metadata(
     metadata: str,
     key: str,
-    encryption_version: MetadataEncryptionVersion = current_metadata_encryption_version,
+    encryption_version: MetadataEncryptionVersion = METADATA_ENCRYPTION_VERSION,
 ) -> str:
     """Encrypt metadata by the given encryption version (current version by default)"""
 
@@ -233,7 +219,7 @@ def decrypt_metadata(metadata: str, keys: str | list[str]) -> str:
 def encrypt_metadata_model(
     metadata: BaseModel,
     key: str,
-    encryption_version: MetadataEncryptionVersion = current_metadata_encryption_version,
+    encryption_version: MetadataEncryptionVersion = METADATA_ENCRYPTION_VERSION,
 ) -> str:
     """Encrypt data model as JSON metadata"""
 

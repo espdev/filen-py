@@ -3,12 +3,15 @@ from dataclasses import dataclass
 from functools import partial
 from hashlib import sha512
 
-from filen.config import FileEncryptionVersion
+from filen.config import (
+    FILE_ENCRYPTION_VERSION,
+    METADATA_ENCRYPTION_VERSION,
+    FileEncryptionVersion,
+    MetadataEncryptionVersion,
+)
 
 from ._base import create_pbkdf2hmac_sha512
 from ._metadata import (
-    MetadataEncryptionVersion,
-    current_metadata_encryption_version,
     decrypt_metadata,
     encrypt_metadata,
 )
@@ -27,12 +30,12 @@ master_key_pbkdf2hmac = partial(
 
 
 @dataclass
-class DerivedInfo:
+class DerivedKeyInfo:
     hashed_password: str
     master_key: str
 
 
-def derive_master_key_and_hashed_password(password: str, salt: str) -> DerivedInfo:
+def derive_master_key_and_hashed_password(password: str, salt: str) -> DerivedKeyInfo:
     """Derive master key and hashed password from the raw password and salt"""
 
     kdf = master_key_pbkdf2hmac(salt=salt.encode())
@@ -40,7 +43,7 @@ def derive_master_key_and_hashed_password(password: str, salt: str) -> DerivedIn
 
     split_index = len(key) // 2
 
-    return DerivedInfo(
+    return DerivedKeyInfo(
         hashed_password=sha512(key[split_index:].encode()).hexdigest(),
         master_key=key[:split_index],
     )
@@ -48,7 +51,7 @@ def derive_master_key_and_hashed_password(password: str, salt: str) -> DerivedIn
 
 def encrypt_master_keys(
     master_keys: list[str],
-    encryption_version: MetadataEncryptionVersion = current_metadata_encryption_version,
+    encryption_version: MetadataEncryptionVersion = METADATA_ENCRYPTION_VERSION,
 ) -> str:
     """Encrypt the list of master keys"""
 
@@ -62,14 +65,18 @@ def decrypt_master_keys(master_keys: str, key: str) -> list[str]:
     return decrypt_metadata(master_keys, key).split('|')
 
 
-def generate_file_encryption_key(version: FileEncryptionVersion = FileEncryptionVersion.v2) -> str:
+def generate_file_encryption_key(version: FileEncryptionVersion = FILE_ENCRYPTION_VERSION) -> str:
+    """Generate file encryption key"""
+
     if version in (FileEncryptionVersion.v1, FileEncryptionVersion.v2):
         return generate_random_string(ENCRYPTION_KEY_LENGTH)
     else:
         return generate_random_hex_string(ENCRYPTION_KEY_LENGTH)
 
 
-def generate_metadata_encryption_key(version: MetadataEncryptionVersion = MetadataEncryptionVersion.v2) -> str:
+def generate_metadata_encryption_key(version: MetadataEncryptionVersion = METADATA_ENCRYPTION_VERSION) -> str:
+    """Generate metadata encryption key for a public link"""
+
     if version in (MetadataEncryptionVersion.v1, MetadataEncryptionVersion.v2):
         return generate_random_string(ENCRYPTION_KEY_LENGTH)
     else:

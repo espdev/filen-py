@@ -6,7 +6,15 @@ from filen.errors import StorageError
 
 from ._base import AsyncRepoBase, RepoBase, repo
 from ._storage import AsyncStorage, Storage
-from .models import FileDetail, FolderContent, FolderDetail, PublicLinkStatus, StorageItemExists, StorageItemType
+from .models import (
+    FileDetail,
+    FolderContent,
+    FolderDetail,
+    PublicLinkExpiration,
+    PublicLinkStatus,
+    StorageItemExists,
+    StorageItemType,
+)
 
 
 class FSMixIn:
@@ -135,8 +143,80 @@ class FS(RepoBase, FSMixIn):
         if not exists:
             return PublicLinkStatus.not_exist() if detail else None
 
-        link_status = self._storage.link_status(exists.uuid, exists.type)
+        link_status = self._storage.public_link_status(exists.uuid, exists.type)
         return link_status if detail else link_status.link
+
+    def mklink(
+        self,
+        path: str,
+        expiration: PublicLinkExpiration = 'never',
+        password: str | None = None,
+        download_btn: bool = True,
+    ) -> PublicLinkStatus:
+        """Creates a public link for a file or folder path
+
+        If the link is already exist, it will be re-created.
+        """
+
+        exists = self.exists(path)
+        if not exists:
+            raise StorageError(f'No such file or directory {path!r}')
+
+        return self._storage.create_public_link(
+            uuid=exists.uuid,
+            link_type=exists.type,
+            expiration=expiration,
+            password=password,
+            download_btn=download_btn,
+        )
+
+    def chlink(
+        self,
+        path: str,
+        expiration: PublicLinkExpiration = 'never',
+        password: str | None = None,
+        download_btn: bool = True,
+    ) -> PublicLinkStatus:
+        """Edit a public link for a file or folder path"""
+
+        link_status = self.link(path, detail=True)
+
+        if not link_status:
+            raise StorageError(f'There is no public link for {path!r}')
+
+        if link_status.type == StorageItemType.file:
+            return self._storage.edit_file_public_link(
+                link_uuid=link_status.uuid,
+                file_uuid=link_status.item_uuid,
+                action='enable',
+                expiration=expiration,
+                password=password,
+                download_btn=download_btn,
+            )
+        else:
+            return self._storage.edit_folder_public_link(
+                folder_uuid=link_status.item_uuid,
+                expiration=expiration,
+                password=password,
+                download_btn=download_btn,
+            )
+
+    def rmlink(self, path: str) -> None:
+        """Remove a public link for a file or folder path"""
+
+        link_status = self.link(path, detail=True)
+
+        if not link_status:
+            raise StorageError(f'There is no public link for {path!r}')
+
+        if link_status.type == StorageItemType.folder:
+            self._storage.remove_folder_public_link(link_status.item_uuid)
+        else:
+            self._storage.edit_file_public_link(
+                link_uuid=link_status.uuid,
+                file_uuid=link_status.item_uuid,
+                action='disable',
+            )
 
 
 class AsyncFS(AsyncRepoBase, FSMixIn):
@@ -217,5 +297,77 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
         if not exists:
             return PublicLinkStatus.not_exist() if detail else None
 
-        link_status = await self._storage.link_status(exists.uuid, exists.type)
+        link_status = await self._storage.public_link_status(exists.uuid, exists.type)
         return link_status if detail else link_status.link
+
+    async def mklink(
+        self,
+        path: str,
+        expiration: PublicLinkExpiration = 'never',
+        password: str | None = None,
+        download_btn: bool = True,
+    ) -> PublicLinkStatus:
+        """Creates a public link for a file or folder path
+
+        If the link is already exist, it will be re-created.
+        """
+
+        exists = await self.exists(path)
+        if not exists:
+            raise StorageError(f'No such file or directory {path!r}')
+
+        return await self._storage.create_public_link(
+            uuid=exists.uuid,
+            link_type=exists.type,
+            expiration=expiration,
+            password=password,
+            download_btn=download_btn,
+        )
+
+    async def chlink(
+        self,
+        path: str,
+        expiration: PublicLinkExpiration = 'never',
+        password: str | None = None,
+        download_btn: bool = True,
+    ) -> PublicLinkStatus:
+        """Edit a public link for a file or folder path"""
+
+        link_status = await self.link(path, detail=True)
+
+        if not link_status:
+            raise StorageError(f'There is no public link for {path!r}')
+
+        if link_status.type == StorageItemType.file:
+            return await self._storage.edit_file_public_link(
+                link_uuid=link_status.uuid,
+                file_uuid=link_status.item_uuid,
+                action='enable',
+                expiration=expiration,
+                password=password,
+                download_btn=download_btn,
+            )
+        else:
+            return await self._storage.edit_folder_public_link(
+                folder_uuid=link_status.item_uuid,
+                expiration=expiration,
+                password=password,
+                download_btn=download_btn,
+            )
+
+    async def rmlink(self, path: str) -> None:
+        """Remove a public link for a file or folder path"""
+
+        link_status = await self.link(path, detail=True)
+
+        if not link_status:
+            raise StorageError(f'There is no public link for {path!r}')
+
+        if link_status.type == StorageItemType.folder:
+            await self._storage.remove_folder_public_link(link_status.item_uuid)
+        else:
+            await self._storage.edit_file_public_link(
+                link_uuid=link_status.uuid,
+                file_uuid=link_status.item_uuid,
+                action='disable',
+            )

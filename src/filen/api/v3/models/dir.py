@@ -9,7 +9,7 @@ from filen.config import FileEncryptionVersion
 from .base import RequestData, ResponseData, StorageItemExists, ValidationAliasedModel
 from .link import PublicLinkExpiration, PublicLinkStatus
 
-ROOT_PARENT: Final = 'base'
+BASE_PARENT: Final = 'base'
 
 
 class FolderContentType(StrEnum):
@@ -23,7 +23,7 @@ class FolderContentRequestData(RequestData):
     uuid: UUID | FolderContentType
 
 
-FolderParent = Annotated[UUID | None, BeforeValidator(lambda v: v if v != ROOT_PARENT else None)]
+FolderParent = Annotated[UUID | None, BeforeValidator(lambda v: v if v != BASE_PARENT else None)]
 
 
 class FolderInfo(ValidationAliasedModel):
@@ -129,7 +129,7 @@ class FolderPublicLinkStatusResponseData(ResponseData[PublicLinkStatus]): ...
 
 class FolderPublicLinkAddRequestData(RequestData):
     uuid: UUID
-    parent: UUID
+    parent: UUID | Literal['base']
     link_uuid: Annotated[UUID, Field(serialization_alias='linkUUID')]
     type: Literal['file', 'folder']
     metadata: str
