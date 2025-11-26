@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from functools import partial
 from hashlib import sha512
 
+from filen.config import FileEncryptionVersion
+
 from ._base import create_pbkdf2hmac_sha512
 from ._metadata import (
     MetadataEncryptionVersion,
@@ -10,8 +12,11 @@ from ._metadata import (
     decrypt_metadata,
     encrypt_metadata,
 )
+from ._utils import generate_random_hex_string, generate_random_string
 
 MASTER_KEY_LENGTH: Final = 64
+ENCRYPTION_KEY_LENGTH: Final = 32
+
 DERIVE_MASTER_KEY_ITERATIONS: Final = 200_000
 
 master_key_pbkdf2hmac = partial(
@@ -55,3 +60,17 @@ def decrypt_master_keys(master_keys: str, key: str) -> list[str]:
     """Decrypt master keys"""
 
     return decrypt_metadata(master_keys, key).split('|')
+
+
+def generate_file_encryption_key(version: FileEncryptionVersion = FileEncryptionVersion.v2) -> str:
+    if version in (FileEncryptionVersion.v1, FileEncryptionVersion.v2):
+        return generate_random_string(ENCRYPTION_KEY_LENGTH)
+    else:
+        return generate_random_hex_string(ENCRYPTION_KEY_LENGTH)
+
+
+def generate_metadata_encryption_key(version: MetadataEncryptionVersion = MetadataEncryptionVersion.v2) -> str:
+    if version in (MetadataEncryptionVersion.v1, MetadataEncryptionVersion.v2):
+        return generate_random_string(ENCRYPTION_KEY_LENGTH)
+    else:
+        return generate_random_hex_string(ENCRYPTION_KEY_LENGTH)

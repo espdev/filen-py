@@ -1,9 +1,9 @@
 from typing import Final
-from secrets import token_bytes
 
 from filen.errors import ContentDecryptError, ContentEncryptError
 
 from ._base import create_aes_256_gcm_cipher
+from ._utils import generate_random_bytes
 
 IV_LENGTH: Final = 12
 AUTH_TAG_LENGTH: Final = 16
@@ -12,7 +12,7 @@ AUTH_TAG_LENGTH: Final = 16
 def encrypt_content(data: bytes, key: str) -> bytes:
     """Encrypt data content"""
 
-    iv = token_bytes(IV_LENGTH)
+    iv = generate_random_bytes(IV_LENGTH)
 
     try:
         cipher = create_aes_256_gcm_cipher(

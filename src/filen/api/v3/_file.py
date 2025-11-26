@@ -1,12 +1,18 @@
 from .._base import APIBase, APIEndpoint, AsyncAPIBase
-from .models.base import StorageItemExistsRequestData, StorageItemUUIDRequestData
-from .models.file import FileExistsResponseData, FileInfoResponseData, FilePublicLinkStatusResponseData
+from .models.base import ResponseModel, StorageItemExistsRequestData, StorageItemUUIDRequestData
+from .models.file import (
+    FileExistsResponseData,
+    FileInfoResponseData,
+    FilePublicLinkEditRequestData,
+    FilePublicLinkStatusResponseData,
+)
 
 
 class FileEndpoint(APIEndpoint):
     info = '/file'
     exists = '/file/exists'
     link_status = '/file/link/status'
+    link_edit = '/file/link/edit'
 
 
 class FileAPI(APIBase):
@@ -21,6 +27,9 @@ class FileAPI(APIBase):
     def link_status(self, data: StorageItemUUIDRequestData) -> FilePublicLinkStatusResponseData:
         return self._post(FileEndpoint.link_status, data, FilePublicLinkStatusResponseData)
 
+    def link_edit(self, data: FilePublicLinkEditRequestData) -> ResponseModel:
+        return self._post(FileEndpoint.link_edit, data, ResponseModel)
+
 
 class AsyncFileAPI(AsyncAPIBase):
     """Async File API"""
@@ -33,3 +42,6 @@ class AsyncFileAPI(AsyncAPIBase):
 
     async def link_status(self, data: StorageItemUUIDRequestData) -> FilePublicLinkStatusResponseData:
         return await self._post(FileEndpoint.link_status, data, FilePublicLinkStatusResponseData)
+
+    async def link_edit(self, data: FilePublicLinkEditRequestData) -> ResponseModel:
+        return await self._post(FileEndpoint.link_edit, data, ResponseModel)

@@ -3,7 +3,6 @@ from abc import ABC, abstractmethod
 from base64 import b64decode, b64encode
 from enum import StrEnum
 from functools import cached_property
-from secrets import token_bytes, token_hex
 
 from cryptography.hazmat.primitives.ciphers import Cipher
 from pydantic import BaseModel, ValidationError
@@ -17,6 +16,7 @@ from filen.errors import (
 )
 
 from ._base import create_aes_256_gcm_cipher, create_pbkdf2hmac_sha512
+from ._utils import generate_random_hex_string, generate_random_string
 
 
 class MetadataEncryptionVersion(StrEnum):
@@ -79,10 +79,8 @@ class MetadataCipher002(MetadataCipherNewBase):
     IV_LENGTH: Final = 12
     AUTH_TAG_LENGTH: Final = 16
 
-    B64_CHARSET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
-
     def encrypt(self, metadata: str) -> str:
-        iv = self._generate_iv()
+        iv = generate_random_string(self.IV_LENGTH)
         cipher = self._create_cipher(iv)
 
         encryptor = cipher.encryptor()
@@ -125,14 +123,6 @@ class MetadataCipher002(MetadataCipherNewBase):
             iv=iv.encode(),
         )
 
-    def _generate_iv(self) -> str:
-        """
-        This guarantees that the length of the string will be equal to the size in bytes,
-        but there is a loss of entropy.
-        """
-        charset_len = len(self.B64_CHARSET)
-        return ''.join(self.B64_CHARSET[b % charset_len] for b in token_bytes(self.IV_LENGTH))
-
 
 class MetadataCipher003(MetadataCipherNewBase):
     """Metadata cipher for encryption version 003"""
@@ -145,7 +135,7 @@ class MetadataCipher003(MetadataCipherNewBase):
     AUTH_TAG_LENGTH: Final = 16
 
     def encrypt(self, metadata: str) -> str:
-        iv_hex = token_hex(self.IV_LENGTH)
+        iv_hex = generate_random_hex_string(self.IV_LENGTH)
         cipher = self._create_cipher(iv_hex)
 
         encryptor = cipher.encryptor()

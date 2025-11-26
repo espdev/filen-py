@@ -1,13 +1,13 @@
-from typing import Annotated, Final
+from typing import Annotated, Final, Literal
 from enum import StrEnum, auto
 from uuid import UUID
 
-from pydantic import BaseModel, BeforeValidator
+from pydantic import BaseModel, BeforeValidator, Field, computed_field
 
 from filen.config import FileEncryptionVersion
 
 from .base import RequestData, ResponseData, StorageItemExists, ValidationAliasedModel
-from .link import PublicLinkStatus
+from .link import PublicLinkExpiration, PublicLinkStatus
 
 ROOT_PARENT: Final = 'base'
 
@@ -130,3 +130,26 @@ class FolderExistsResponseData(ResponseData[StorageItemExists]): ...
 
 
 class FolderPublicLinkStatusResponseData(ResponseData[PublicLinkStatus]): ...
+
+
+class FolderPublicLinkAddRequestData(RequestData):
+    uuid: UUID
+    parent: UUID
+    link_uuid: Annotated[UUID, Field(serialization_alias='linkUUID')]
+    type: Literal['file', 'folder']
+    metadata: str
+    key: str
+    expiration: PublicLinkExpiration
+
+
+class FolderPublicLinkEditRequestData(RequestData):
+    uuid: UUID
+    expiration: PublicLinkExpiration
+    has_password: Annotated[bool, Field(exclude=True)]
+    password_hashed: str
+    salt: str
+    download_btn: bool
+
+    @computed_field
+    def password(self) -> Literal['empty', 'notempty']:
+        return 'notempty' if self.has_password else 'empty'

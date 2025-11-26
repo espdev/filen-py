@@ -1,12 +1,14 @@
 from ._content import decrypt_content, encrypt_content
 from ._hash import combined_sha_hash_func, derive_hmac_sha256_key, hash_name, hmac_sha256_hash_func
-from ._keypair import KeyPair, create_der_keypair, generate_private_key, keypair_der_to_pem
-from ._masterkey import (
+from ._key import (
     DerivedInfo,
     decrypt_master_keys,
     derive_master_key_and_hashed_password,
     encrypt_master_keys,
+    generate_file_encryption_key,
+    generate_metadata_encryption_key,
 )
+from ._keypair import KeyPair, create_der_keypair, generate_private_key, keypair_der_to_pem
 from ._metadata import (
     MetadataCipherBase,
     MetadataEncryptionVersion,
@@ -43,4 +45,6 @@ __all__ = [
     'combined_sha_hash_func',
     'hmac_sha256_hash_func',
     'derive_hmac_sha256_key',
+    'generate_metadata_encryption_key',
+    'generate_file_encryption_key',
 ]

@@ -1,5 +1,5 @@
 from .._base import APIBase, APIEndpoint, AsyncAPIBase
-from .models.base import StorageItemExistsRequestData, StorageItemUUIDRequestData
+from .models.base import ResponseModel, StorageItemExistsRequestData, StorageItemUUIDRequestData
 from .models.dir import (
     FolderContentRequestData,
     FolderContentResponseData,
@@ -8,6 +8,8 @@ from .models.dir import (
     FolderDownloadResponseData,
     FolderExistsResponseData,
     FolderInfoResponseData,
+    FolderPublicLinkAddRequestData,
+    FolderPublicLinkEditRequestData,
     FolderPublicLinkStatusResponseData,
 )
 
@@ -19,6 +21,9 @@ class DirEndpoint(APIEndpoint):
     exists = '/dir/exists'
     create = '/dir/create'
     link_status = '/dir/link/status'
+    link_add = '/dir/link/add'
+    link_edit = '/dir/link/edit'
+    link_remove = '/dir/link/remove'
 
 
 class DirAPI(APIBase):
@@ -42,6 +47,15 @@ class DirAPI(APIBase):
     def link_status(self, data: StorageItemUUIDRequestData) -> FolderPublicLinkStatusResponseData:
         return self._post(DirEndpoint.link_status, data, FolderPublicLinkStatusResponseData)
 
+    def link_add(self, data: FolderPublicLinkAddRequestData) -> ResponseModel:
+        return self._post(DirEndpoint.link_add, data, ResponseModel)
+
+    def link_edit(self, data: FolderPublicLinkEditRequestData) -> ResponseModel:
+        return self._post(DirEndpoint.link_edit, data, ResponseModel)
+
+    def link_remove(self, data: StorageItemUUIDRequestData) -> ResponseModel:
+        return self._post(DirEndpoint.link_remove, data, ResponseModel)
+
 
 class AsyncDirAPI(AsyncAPIBase):
     """Async Dir API"""
@@ -63,3 +77,12 @@ class AsyncDirAPI(AsyncAPIBase):
 
     async def link_status(self, data: StorageItemUUIDRequestData) -> FolderPublicLinkStatusResponseData:
         return await self._post(DirEndpoint.link_status, data, FolderPublicLinkStatusResponseData)
+
+    async def link_add(self, data: FolderPublicLinkAddRequestData) -> ResponseModel:
+        return await self._post(DirEndpoint.link_add, data, ResponseModel)
+
+    async def link_edit(self, data: FolderPublicLinkEditRequestData) -> ResponseModel:
+        return await self._post(DirEndpoint.link_edit, data, ResponseModel)
+
+    async def link_remove(self, data: StorageItemUUIDRequestData) -> ResponseModel:
+        return await self._post(DirEndpoint.link_remove, data, ResponseModel)
