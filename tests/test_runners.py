@@ -51,8 +51,8 @@ def runner(request):
 def async_runner(request):
     runner_cls = request.param
 
-    if issubclass(runner_cls, AsyncInterpreterRunner) and sys.version_info < (3, 13):
-        pytest.skip('AsyncInterpreterRunner works only in Python >= 3.13')
+    if issubclass(runner_cls, AsyncInterpreterRunner) and sys.version_info < (3, 14):
+        pytest.skip('AsyncInterpreterRunner works only in Python >= 3.14')
 
     return runner_cls()
 

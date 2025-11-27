@@ -310,8 +310,8 @@ class AsyncInterpreterRunner(AsyncRunnerBase):
     limiter: to_interpreter.CapacityLimiter | None = None
 
     def __post_init__(self):
-        if sys.version_info < (3, 13):
-            raise RuntimeError('AsyncInterpreterRunner can be used only in Python 3.13 and above.')
+        if sys.version_info < (3, 14):
+            raise RuntimeError('AsyncInterpreterRunner can be used only in Python 3.14 and above.')
 
     @cached_property
     def _run_sync(self):
