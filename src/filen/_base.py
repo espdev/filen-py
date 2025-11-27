@@ -4,8 +4,10 @@ from abc import ABC, abstractmethod
 from httpx import AsyncClient, Client, Limits, Timeout
 
 from filen._context import Context
+from filen._logging import logger
 from filen.api import AsyncFilenAPI, FilenAPI
 from filen.config import DEFAULT_MAX_KEEPALIVE_CONNECTIONS, FilenConfig
+from filen.errors import FilenError
 from filen.repo import AsyncEnsureContextMixIn, AsyncRepoBase, EnsureContextMixIn, RepoBase, RepoFactoryMixIn
 from filen.runners import AsyncRunnerBase, AsyncThreadRunner, RunnerBase, ThreadRunner
 
@@ -74,8 +76,20 @@ class FilenClientBase(
 ):
     """Base class for Filen sync clients"""
 
-    def ensure_context(self):
-        self._ensure_context()
+    def ensure_context(self, raise_err: bool = True) -> bool:
+        try:
+            self._ensure_context()
+        except FilenError as err:
+            if raise_err:
+                raise
+            logger.debug('Unable to ensure context: %s', err, exc_info=err)
+        return self.is_valid_context
+
+    def close(self) -> None:
+        if self._owns_runner:
+            self._runner.shutdown()
+        if self._owns_http_client:
+            self._http_client.close()
 
     def _create_default_runner(self) -> RunnerBase:
         return ThreadRunner()
@@ -113,8 +127,18 @@ class AsyncFilenClientBase(
 ):
     """Base class for Filen async clients"""
 
-    async def ensure_context(self):
-        await self._ensure_context()
+    async def ensure_context(self, raise_err: bool = True) -> bool:
+        try:
+            await self._ensure_context()
+        except FilenError as err:
+            if raise_err:
+                raise
+            logger.debug('Unable to ensure context: %s', err, exc_info=err)
+        return self.is_valid_context
+
+    async def close(self) -> None:
+        if self._owns_http_client:
+            await self._http_client.aclose()
 
     def _create_default_runner(self) -> AsyncRunnerBase:
         return AsyncThreadRunner()
