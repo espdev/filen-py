@@ -15,7 +15,7 @@ from .models import UserKeyPair
 class RepoGenericBase[TAPI: FilenAPI | AsyncFilenAPI, TRunner: RunnerBase | AsyncRunnerBase]:
     """Base generic class for all sync/async repository classes"""
 
-    def __init__(self, context: Context, api: TAPI, runner: TRunner) -> None:
+    def __init__(self, context: Context, api: TAPI, runner: TRunner, /) -> None:
         self._context = context
         self._api = api
         self._runner = runner
@@ -30,8 +30,8 @@ class RepoFactoryMixIn:
     _api: FilenAPI | AsyncFilenAPI
     _runner: RunnerBase | AsyncRunnerBase
 
-    def _create[TRepo: RepoGenericBase](self, repo_type: Type[TRepo]) -> TRepo:
-        return repo_type(context=self._context, api=self._api, runner=self._runner)
+    def _create[TRepo: RepoGenericBase](self, repo_type: Type[TRepo], *args, **kwargs) -> TRepo:
+        return repo_type(self._context, self._api, self._runner, *args, **kwargs)
 
 
 class EnsureContextMixIn:

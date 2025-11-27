@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import EmailStr, Field
@@ -57,3 +57,23 @@ class UserBaseFolder(ValidationAliasedModel):
 
 
 class UserBaseFolderResponseData(ResponseData[UserBaseFolder]): ...
+
+
+type LockActionType = Literal['acquire', 'release', 'status', 'refresh']
+
+
+class LockRequestData(RequestData):
+    uuid: UUID
+    resource: str
+    type: LockActionType
+
+
+class LockStatus(ValidationAliasedModel):
+    acquired: bool
+    released: bool
+    refreshed: bool
+    resource: str
+    status: Literal['locked'] | None = None
+
+
+class LockStatusResponseData(ResponseData[LockStatus]): ...

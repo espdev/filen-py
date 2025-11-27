@@ -27,7 +27,8 @@ from filen.crypto import (
 )
 from filen.errors import StorageError
 
-from ._base import AsyncRepoBase, RepoBase
+from ._base import AsyncRepoBase, RepoBase, repo
+from ._lock import AsyncLock, Lock
 from .models import (
     CreateFolderInfo,
     FileInfo,
@@ -123,6 +124,8 @@ class Storage(RepoBase, StorageMixIn):
 
     Provides methods for manipulating with directories and files in the cloud storage.
     """
+
+    _drive_write_lock: Lock = repo(Lock, resource='drive-write')
 
     def base_folder(self) -> UUID:
         """Retrieve the base foder UUID (root srorage UUID)"""
@@ -226,7 +229,9 @@ class Storage(RepoBase, StorageMixIn):
             name_hashed=name_hashed,
             parent=parent,
         )
-        return self._api.v3.dir.create(data).data_as(CreateFolderInfo)
+
+        with self._drive_write_lock:
+            return self._api.v3.dir.create(data).data_as(CreateFolderInfo)
 
     def file_exists(self, name: str, parent: UUID | None = None) -> StorageItemExists:
         """Check if a file exists"""
@@ -418,6 +423,8 @@ class Storage(RepoBase, StorageMixIn):
 class AsyncStorage(AsyncRepoBase, StorageMixIn):
     """Async Storage repository"""
 
+    _drive_write_lock: AsyncLock = repo(AsyncLock, resource='drive-write')
+
     async def base_folder(self) -> UUID:
         return await self._ensure_base_folder_uuid()
 
@@ -484,10 +491,7 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
 
         return (
             await self._api.v3.dir.exists(
-                StorageItemExistsRequestData(
-                    parent=parent,
-                    name_hashed=name_hashed,
-                ),
+                StorageItemExistsRequestData(parent=parent, name_hashed=name_hashed),
             )
         ).data_as(StorageItemExists, type=StorageItemType.folder)
 
@@ -512,7 +516,9 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
             name_hashed=name_hashed,
             parent=parent,
         )
-        return (await self._api.v3.dir.create(data)).data_as(CreateFolderInfo)
+
+        async with self._drive_write_lock:
+            return (await self._api.v3.dir.create(data)).data_as(CreateFolderInfo)
 
     async def file_exists(self, name: str, parent: UUID | None = None) -> StorageItemExists:
         if parent is None:
@@ -521,7 +527,9 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
         name_hashed = await self._runner.run_sync(hash_name, name, self._context.auth_version)
 
         return (
-            await self._api.v3.file.exists(StorageItemExistsRequestData(parent=parent, name_hashed=name_hashed))
+            await self._api.v3.file.exists(
+                StorageItemExistsRequestData(parent=parent, name_hashed=name_hashed),
+            )
         ).data_as(StorageItemExists, type=StorageItemType.file)
 
     async def file_info(self, uuid: ItemId) -> FileInfo:

@@ -1,5 +1,7 @@
 from .._base import APIBase, APIEndpoint, AsyncAPIBase
 from .models.user import (
+    LockRequestData,
+    LockStatusResponseData,
     UserBaseFolderResponseData,
     UserInfoResponseData,
     UserKeyPairInfoResponseData,
@@ -15,6 +17,7 @@ class UserEndpoint(APIEndpoint):
     base_folder = '/user/baseFolder'
     master_keys = '/user/masterKeys'
     user_key_pair_info = '/user/keyPair/info'
+    lock = '/user/lock'
 
 
 class UserAPI(APIBase):
@@ -33,6 +36,9 @@ class UserAPI(APIBase):
     def key_pair_info(self) -> UserKeyPairInfoResponseData:
         return self._get(UserEndpoint.user_key_pair_info, UserKeyPairInfoResponseData)
 
+    def lock(self, data: LockRequestData) -> LockStatusResponseData:
+        return self._post(UserEndpoint.lock, data, LockStatusResponseData)
+
 
 class AsyncUserAPI(AsyncAPIBase):
     async def info(self) -> UserInfoResponseData:
@@ -49,3 +55,6 @@ class AsyncUserAPI(AsyncAPIBase):
 
     async def key_pair_info(self) -> UserKeyPairInfoResponseData:
         return await self._get(UserEndpoint.user_key_pair_info, UserKeyPairInfoResponseData)
+
+    async def lock(self, data: LockRequestData) -> LockStatusResponseData:
+        return await self._post(UserEndpoint.lock, data, LockStatusResponseData)
