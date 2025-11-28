@@ -191,7 +191,7 @@ class Storage(RepoBase, StorageMixIn):
 
         return self._collect_folder_content(folder_download.files, folder_download.folders, tg.results)
 
-    def folder_exists(self, name: str, parent: UUID | None = None) -> StorageItemExists:
+    def folder_exists(self, name: str, parent: ItemId | None = None) -> StorageItemExists:
         """Check if a forlder exists"""
 
         if parent is None:
@@ -206,7 +206,7 @@ class Storage(RepoBase, StorageMixIn):
             ),
         ).data_as(StorageItemExists, type=StorageItemType.folder)
 
-    def create_folder(self, name: str, parent: UUID | None = None) -> CreateFolderInfo:
+    def create_folder(self, name: str, parent: ItemId | None = None) -> CreateFolderInfo:
         """Create a new folder in the cloud storage"""
 
         self.check_name(name)
@@ -233,7 +233,18 @@ class Storage(RepoBase, StorageMixIn):
         with self._drive_write_lock:
             return self._api.v3.dir.create(data).data_as(CreateFolderInfo)
 
-    def file_exists(self, name: str, parent: UUID | None = None) -> StorageItemExists:
+    def delete_folder(self, uuid: ItemId, permanent: bool = False) -> None:
+        """Move folder to trash or delete permanently"""
+
+        data = StorageItemUUIDRequestData(uuid=uuid)
+
+        with self._drive_write_lock:
+            if permanent:
+                self._api.v3.dir.delete(data)
+            else:
+                self._api.v3.dir.trash(data)
+
+    def file_exists(self, name: str, parent: ItemId | None = None) -> StorageItemExists:
         """Check if a file exists"""
 
         if parent is None:
@@ -483,7 +494,7 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
 
         return self._collect_folder_content(folder_download.files, folder_download.folders, tg.results)
 
-    async def folder_exists(self, name: str, parent: UUID | None = None) -> StorageItemExists:
+    async def folder_exists(self, name: str, parent: ItemId | None = None) -> StorageItemExists:
         if parent is None:
             parent = await self._ensure_base_folder_uuid()
 
@@ -495,7 +506,7 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
             )
         ).data_as(StorageItemExists, type=StorageItemType.folder)
 
-    async def create_folder(self, name: str, parent: UUID | None = None) -> CreateFolderInfo:
+    async def create_folder(self, name: str, parent: ItemId | None = None) -> CreateFolderInfo:
         self.check_name(name)
         metadata = FolderMetadata(name=name)
 
@@ -520,7 +531,18 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
         async with self._drive_write_lock:
             return (await self._api.v3.dir.create(data)).data_as(CreateFolderInfo)
 
-    async def file_exists(self, name: str, parent: UUID | None = None) -> StorageItemExists:
+    async def delete_folder(self, uuid: ItemId, permanent: bool = False) -> None:
+        """Move folder to trash or delete permanently"""
+
+        data = StorageItemUUIDRequestData(uuid=uuid)
+
+        async with self._drive_write_lock:
+            if permanent:
+                await self._api.v3.dir.delete(data)
+            else:
+                await self._api.v3.dir.trash(data)
+
+    async def file_exists(self, name: str, parent: ItemId | None = None) -> StorageItemExists:
         if parent is None:
             parent = await self._ensure_base_folder_uuid()
 

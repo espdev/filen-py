@@ -24,6 +24,8 @@ class DirEndpoint(APIEndpoint):
     link_add = '/dir/link/add'
     link_edit = '/dir/link/edit'
     link_remove = '/dir/link/remove'
+    trash = '/dir/trash'
+    delete = '/dir/delete/permanent'
 
 
 class DirAPI(APIBase):
@@ -43,6 +45,12 @@ class DirAPI(APIBase):
 
     def create(self, data: FolderCreateRequestData) -> FolderCreateResponseData:
         return self._post(DirEndpoint.create, data, FolderCreateResponseData)
+
+    def trash(self, data: StorageItemUUIDRequestData) -> ResponseModel:
+        return self._post(DirEndpoint.trash, data, ResponseModel)
+
+    def delete(self, data: StorageItemUUIDRequestData) -> ResponseModel:
+        return self._post(DirEndpoint.delete, data, ResponseModel)
 
     def link_status(self, data: StorageItemUUIDRequestData) -> FolderPublicLinkStatusResponseData:
         return self._post(DirEndpoint.link_status, data, FolderPublicLinkStatusResponseData)
@@ -74,6 +82,12 @@ class AsyncDirAPI(AsyncAPIBase):
 
     async def create(self, data: FolderCreateRequestData) -> FolderCreateResponseData:
         return await self._post(DirEndpoint.create, data, FolderCreateResponseData)
+
+    async def trash(self, data: StorageItemUUIDRequestData) -> ResponseModel:
+        return await self._post(DirEndpoint.trash, data, ResponseModel)
+
+    async def delete(self, data: StorageItemUUIDRequestData) -> ResponseModel:
+        return await self._post(DirEndpoint.delete, data, ResponseModel)
 
     async def link_status(self, data: StorageItemUUIDRequestData) -> FolderPublicLinkStatusResponseData:
         return await self._post(DirEndpoint.link_status, data, FolderPublicLinkStatusResponseData)

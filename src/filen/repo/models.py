@@ -85,7 +85,7 @@ class FileInfo(BaseModel):
     version: FileEncryptionVersion
     timestamp: int
 
-    @property
+    @computed_field
     def type(self) -> Literal['file']:
         return 'file'
 
@@ -102,7 +102,7 @@ class FolderInfo(BaseModel):
     color: str | None
     timestamp: int
 
-    @property
+    @computed_field
     def type(self) -> Literal['folder']:
         return 'folder'
 
@@ -131,6 +131,9 @@ class CreateFolderInfo(BaseModel):
 class StorageItemType(StrEnum):
     file = auto()
     folder = auto()
+
+
+type StorageItemTypeLiteral = Literal['folder', 'file']
 
 
 class StorageItemExists(BaseModel):
@@ -176,10 +179,17 @@ class FileDetail(BaseModel):
     path: str
     name: str
     uuid: UUID
+    parent: UUID
     size: int
     mime: str
+    favorited: bool
+    trash: bool
     created: datetime
     last_modified: datetime
+
+    @computed_field
+    def type(self) -> Literal['file']:
+        return 'file'
 
     @classmethod
     def from_info(cls, path: str, file_info: FileInfo) -> Self:
@@ -187,8 +197,11 @@ class FileDetail(BaseModel):
             path=f'{path}/{file_info.metadata.name}',
             name=file_info.metadata.name,
             uuid=file_info.uuid,
+            parent=file_info.parent,
             size=file_info.metadata.size,
             mime=file_info.metadata.mime,
+            favorited=file_info.favorited,
+            trash=file_info.trash,
             created=datetime.fromtimestamp(file_info.timestamp),
             last_modified=datetime.fromtimestamp(file_info.metadata.last_modified / 1000),
         )
@@ -198,7 +211,14 @@ class FolderDetail(BaseModel):
     path: str
     name: str
     uuid: UUID
+    parent: UUID | None
+    favorited: bool
+    trash: bool
     created: datetime
+
+    @computed_field
+    def type(self) -> Literal['folder']:
+        return 'folder'
 
     @classmethod
     def from_info(cls, path: str, folder_info: FolderInfo) -> Self:
@@ -206,6 +226,9 @@ class FolderDetail(BaseModel):
             path=f'{path}/{folder_info.name}',
             name=folder_info.name,
             uuid=folder_info.uuid,
+            parent=folder_info.parent,
+            favorited=folder_info.favorited,
+            trash=folder_info.trash,
             created=datetime.fromtimestamp(folder_info.timestamp),
         )
 

@@ -1,3 +1,4 @@
+from typing import Final
 import re
 from uuid import UUID
 
@@ -14,7 +15,10 @@ from .models import (
     PublicLinkStatus,
     StorageItemExists,
     StorageItemType,
+    StorageItemTypeLiteral,
 )
+
+TRASH_PATH: Final = '/<trash>'
 
 
 class FSMixIn:
@@ -61,6 +65,20 @@ class FSMixIn:
 
         return content
 
+    @staticmethod
+    def _collect_items_in_trash(
+        folder_content: FolderContent, item_type: StorageItemType | StorageItemTypeLiteral | None
+    ) -> list[FolderDetail | FileDetail]:
+        match item_type:
+            case StorageItemType.folder:
+                return [FolderDetail.from_info(TRASH_PATH, f) for f in folder_content.folders]
+            case StorageItemType.file:
+                return [FileDetail.from_info(TRASH_PATH, f) for f in folder_content.files]
+            case _:
+                folders = [FolderDetail.from_info(TRASH_PATH, f) for f in folder_content.folders]
+                files = [FileDetail.from_info(TRASH_PATH, f) for f in folder_content.files]
+                return folders + files
+
 
 class FS(RepoBase, FSMixIn):
     """High-level filesystem-like repository to manipulate files and folders"""
@@ -97,6 +115,9 @@ class FS(RepoBase, FSMixIn):
     def ls(self, path: str, detail: bool = False) -> list[str | FileDetail | FolderDetail]:
         """List files and folders at path"""
 
+        if path in (TRASH_PATH, TRASH_PATH.strip('/')):
+            return self.trash()
+
         path = self._normalize_path(path)
 
         if path == '/':
@@ -118,6 +139,15 @@ class FS(RepoBase, FSMixIn):
             folder_content = self._storage.folder_content(item_exists.uuid)
             return self._collect_folder_content(path, folder_content, detail=detail)
 
+    def trash(
+        self,
+        item_type: StorageItemType | StorageItemTypeLiteral | None = None,
+    ) -> list[FolderDetail | FileDetail]:
+        """Return the list of items in trash"""
+
+        folder_content = self._storage.folder_content('trash')
+        return self._collect_items_in_trash(folder_content, item_type)
+
     def mkdir(self, path: str) -> UUID:
         """Create a directory on the cloud storage with parents for given path
 
@@ -135,6 +165,18 @@ class FS(RepoBase, FSMixIn):
             parent_uuid = folder_created.uuid
 
         return parent_uuid
+
+    def rmdir(self, path: str, permanent: bool = False) -> None:
+        """Delete a directory"""
+
+        exists = self.exists(path)
+
+        if not exists:
+            raise StorageError('%r does not exist.', path)
+        elif exists.type != StorageItemType.folder:
+            raise StorageError('%r is not a directory.', path)
+
+        self._storage.delete_folder(exists.uuid, permanent=permanent)
 
     def link(self, path: str, detail: bool = False) -> str | PublicLinkStatus | None:
         """Get a public link status for the file/folder"""
@@ -254,6 +296,9 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
     async def ls(self, path: str, detail: bool = False) -> list[str | FileDetail | FolderDetail]:
         """List files and folders at path"""
 
+        if path in (TRASH_PATH, TRASH_PATH.strip('/')):
+            return await self.trash()
+
         path = self._normalize_path(path)
 
         if path == '/':
@@ -275,6 +320,15 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
             folder_content = await self._storage.folder_content(item_exists.uuid)
             return self._collect_folder_content(path, folder_content, detail=detail)
 
+    async def trash(
+        self,
+        item_type: StorageItemType | StorageItemTypeLiteral | None = None,
+    ) -> list[FolderDetail | FileDetail]:
+        """Return the list of items in trash"""
+
+        folder_content = await self._storage.folder_content('trash')
+        return self._collect_items_in_trash(folder_content, item_type)
+
     async def mkdir(self, path: str) -> UUID:
         """Create a directory on the cloud storage with parents for given path"""
 
@@ -289,6 +343,18 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
             parent_uuid = folder_created.uuid
 
         return parent_uuid
+
+    async def rmdir(self, path: str, permanent: bool = False) -> None:
+        """Delete a directory"""
+
+        exists = await self.exists(path)
+
+        if not exists:
+            raise StorageError('%r does not exist.', path)
+        elif exists.type != StorageItemType.folder:
+            raise StorageError('%r is not a directory.', path)
+
+        await self._storage.delete_folder(exists.uuid, permanent=permanent)
 
     async def link(self, path: str, detail: bool = False) -> str | PublicLinkStatus | None:
         """Get a public link status for the file/folder"""
