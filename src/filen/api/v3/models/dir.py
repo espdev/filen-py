@@ -124,6 +124,11 @@ class FolderCreateResponseData(ResponseData[FolderCreated]): ...
 class FolderExistsResponseData(ResponseData[StorageItemExists]): ...
 
 
+class FolderMoveRequestData(RequestData):
+    uuid: UUID
+    to: UUID
+
+
 class FolderPublicLinkStatusResponseData(ResponseData[PublicLinkStatus]): ...
 
 

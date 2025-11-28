@@ -10,6 +10,7 @@ from filen.api.v3.models.dir import (
     FolderContentRequestData,
     FolderContentType,
     FolderCreateRequestData,
+    FolderMoveRequestData,
     FolderPublicLinkAddRequestData,
     FolderPublicLinkEditRequestData,
 )
@@ -264,6 +265,17 @@ class Storage(RepoBase, StorageMixIn):
                 self._api.v3.dir.delete(data)
             else:
                 self._api.v3.dir.trash(data)
+
+    def move_folder(self, uuid: ItemId, to_uuid: ItemId) -> None:
+        """Move a folder to another folder"""
+
+        if uuid == to_uuid:
+            raise StorageError('The folder cannot be moved into itself.')
+
+        data = FolderMoveRequestData(uuid=uuid, to=to_uuid)
+
+        with self._drive_write_lock:
+            self._api.v3.dir.move(data)
 
     def file_exists(self, name: str, parent: ItemId | None = None) -> StorageItemExists:
         """Check if a file exists"""
@@ -584,6 +596,17 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
                 await self._api.v3.dir.delete(data)
             else:
                 await self._api.v3.dir.trash(data)
+
+    async def move_folder(self, uuid: ItemId, to_uuid: ItemId) -> None:
+        """Move a folder to another folder"""
+
+        if uuid == to_uuid:
+            raise StorageError('The folder cannot be moved into itself.')
+
+        data = FolderMoveRequestData(uuid=uuid, to=to_uuid)
+
+        async with self._drive_write_lock:
+            await self._api.v3.dir.move(data)
 
     async def file_exists(self, name: str, parent: ItemId | None = None) -> StorageItemExists:
         if parent is None:

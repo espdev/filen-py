@@ -8,6 +8,7 @@ from .models.dir import (
     FolderDownloadResponseData,
     FolderExistsResponseData,
     FolderInfoResponseData,
+    FolderMoveRequestData,
     FolderPublicLinkAddRequestData,
     FolderPublicLinkEditRequestData,
     FolderPublicLinkStatusResponseData,
@@ -26,6 +27,7 @@ class DirEndpoint(APIEndpoint):
     link_remove = '/dir/link/remove'
     trash = '/dir/trash'
     delete = '/dir/delete/permanent'
+    move = '/dir/move'
 
 
 class DirAPI(APIBase):
@@ -51,6 +53,9 @@ class DirAPI(APIBase):
 
     def delete(self, data: StorageItemUUIDRequestData) -> ResponseModel:
         return self._post(DirEndpoint.delete, data, ResponseModel)
+
+    def move(self, data: FolderMoveRequestData) -> ResponseModel:
+        return self._post(DirEndpoint.move, data, ResponseModel)
 
     def link_status(self, data: StorageItemUUIDRequestData) -> FolderPublicLinkStatusResponseData:
         return self._post(DirEndpoint.link_status, data, FolderPublicLinkStatusResponseData)
@@ -88,6 +93,9 @@ class AsyncDirAPI(AsyncAPIBase):
 
     async def delete(self, data: StorageItemUUIDRequestData) -> ResponseModel:
         return await self._post(DirEndpoint.delete, data, ResponseModel)
+
+    async def move(self, data: FolderMoveRequestData) -> ResponseModel:
+        return await self._post(DirEndpoint.move, data, ResponseModel)
 
     async def link_status(self, data: StorageItemUUIDRequestData) -> FolderPublicLinkStatusResponseData:
         return await self._post(DirEndpoint.link_status, data, FolderPublicLinkStatusResponseData)

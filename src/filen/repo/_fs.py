@@ -41,6 +41,13 @@ class FSMixIn:
         return names
 
     @staticmethod
+    def _check_folder_path(path: str, status: StorageItemExists):
+        if not status:
+            raise StorageError('%r does not exist.', path)
+        elif status.type != StorageItemType.folder:
+            raise StorageError('%r is not a directory.', path)
+
+    @staticmethod
     def _collect_folder_content(
         path: str,
         folder_content: FolderContent,
@@ -171,12 +178,19 @@ class FS(RepoBase, FSMixIn):
 
         exists = self.exists(path)
 
-        if not exists:
-            raise StorageError('%r does not exist.', path)
-        elif exists.type != StorageItemType.folder:
-            raise StorageError('%r is not a directory.', path)
-
+        self._check_folder_path(path, exists)
         self._storage.delete_folder(exists.uuid, permanent=permanent)
+
+    def mvdir(self, from_path: str, to_path: str) -> None:
+        """Move a folder to another folder"""
+
+        from_status = self.exists(from_path)
+        to_status = self.exists(to_path)
+
+        self._check_folder_path(from_path, from_status)
+        self._check_folder_path(to_path, to_status)
+
+        self._storage.move_folder(from_status.uuid, to_status.uuid)
 
     def link(self, path: str, detail: bool = False) -> str | PublicLinkStatus | None:
         """Get a public link status for the file/folder"""
@@ -355,6 +369,17 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
             raise StorageError('%r is not a directory.', path)
 
         await self._storage.delete_folder(exists.uuid, permanent=permanent)
+
+    async def mvdir(self, from_path: str, to_path: str) -> None:
+        """Move a folder to another folder"""
+
+        from_status = await self.exists(from_path)
+        to_status = await self.exists(to_path)
+
+        self._check_folder_path(from_path, from_status)
+        self._check_folder_path(to_path, to_status)
+
+        await self._storage.move_folder(from_status.uuid, to_status.uuid)
 
     async def link(self, path: str, detail: bool = False) -> str | PublicLinkStatus | None:
         """Get a public link status for the file/folder"""
