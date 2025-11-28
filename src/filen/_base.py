@@ -36,9 +36,6 @@ class FilenClientGenericBase[
         self._http_client = http_client or self._create_client(config)
         self._owns_http_client = http_client is None
 
-        if not self._owns_http_client:
-            self._http_client.base_url = self._context.api_url
-
         self._api = self._create_api()
 
     @property
@@ -96,7 +93,6 @@ class FilenClientBase(
 
     def _create_client(self, config: FilenConfig) -> Client:
         return Client(
-            base_url=str(config.api_url),
             timeout=config.request_timeout,
             limits=Limits(
                 max_connections=config.max_connections,
@@ -145,7 +141,6 @@ class AsyncFilenClientBase(
 
     def _create_client(self, config: FilenConfig) -> AsyncClient:
         return AsyncClient(
-            base_url=str(config.api_url),
             timeout=config.request_timeout,
             limits=Limits(
                 max_connections=config.max_connections,

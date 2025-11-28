@@ -1,11 +1,44 @@
 from typing import Final
 from enum import IntEnum, ReprEnum
 from functools import cached_property
+import random
 
 from pydantic import EmailStr, HttpUrl, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-FILEN_API_URL: Final = 'https://gateway.filen.io/v3'
+FILEN_GATEWAY_URLS = [
+    'https://gateway.filen.io',
+    'https://gateway.filen.net',
+    'https://gateway.filen-1.net',
+    'https://gateway.filen-2.net',
+    'https://gateway.filen-3.net',
+    'https://gateway.filen-4.net',
+    'https://gateway.filen-5.net',
+    'https://gateway.filen-6.net',
+]
+
+FILEN_EGEST_URLS = [
+    'https://egest.filen.io',
+    'https://egest.filen.net',
+    'https://egest.filen-1.net',
+    'https://egest.filen-2.net',
+    'https://egest.filen-3.net',
+    'https://egest.filen-4.net',
+    'https://egest.filen-5.net',
+    'https://egest.filen-6.net',
+]
+
+FILEN_INGEST_URLS = [
+    'https://ingest.filen.io',
+    'https://ingest.filen.net',
+    'https://ingest.filen-1.net',
+    'https://ingest.filen-2.net',
+    'https://ingest.filen-3.net',
+    'https://ingest.filen-4.net',
+    'https://ingest.filen-5.net',
+    'https://ingest.filen-6.net',
+]
+
 FILEN_APP_URL: Final = 'https://app.filen.io'
 
 FILEN_PUBLIC_FILE_LINK_BASE_URL: Final = f'{FILEN_APP_URL}/#/d'
@@ -70,7 +103,9 @@ PUBLIC_LINK_VERSION: Final = PublicLinkVersion.v2
 class FilenConfig(BaseSettings):
     """Filen configuration"""
 
-    api_url: HttpUrl = HttpUrl(FILEN_API_URL)
+    gateway_url: HttpUrl | None = None
+    egest_url: HttpUrl | None = None
+    ingest_url: HttpUrl | None = None
 
     email: EmailStr | None = None
     password: SecretStr | None = None
@@ -88,3 +123,15 @@ class FilenConfig(BaseSettings):
         env_file_encoding='utf-8',
         extra='ignore',
     )
+
+
+def get_random_filen_gateway_url() -> str:
+    return random.choice(FILEN_GATEWAY_URLS)
+
+
+def get_random_filen_egest_url() -> str:
+    return random.choice(FILEN_EGEST_URLS)
+
+
+def get_random_filen_ingest_url() -> str:
+    return random.choice(FILEN_INGEST_URLS)

@@ -2,7 +2,13 @@ from typing import NoReturn, Self
 from dataclasses import dataclass
 from uuid import UUID
 
-from filen.config import AuthVersion, FilenConfig
+from filen.config import (
+    AuthVersion,
+    FilenConfig,
+    get_random_filen_egest_url,
+    get_random_filen_gateway_url,
+    get_random_filen_ingest_url,
+)
 from filen.errors import InaccessibleKeysError
 
 
@@ -10,7 +16,10 @@ from filen.errors import InaccessibleKeysError
 class Context:
     """Filen client context"""
 
-    api_url: str
+    gateway_url: str | None
+    egest_url: str | None
+    ingest_url: str | None
+
     auth_version: AuthVersion
 
     email: str | None
@@ -25,7 +34,9 @@ class Context:
     @classmethod
     def create_from_config(cls, config: FilenConfig) -> Self:
         return cls(
-            api_url=str(config.api_url),
+            gateway_url=str(config.gateway_url) if config.gateway_url else None,
+            egest_url=str(config.egest_url) if config.egest_url else None,
+            ingest_url=str(config.ingest_url) if config.ingest_url else None,
             auth_version=AuthVersion.v2,
             email=str(config.email) if config.email else None,
             password=config.password.get_secret_value() if config.password else None,
@@ -78,6 +89,15 @@ class Context:
         if not self.has_master_keys:
             raise InaccessibleKeysError('There are no master keys in the context.')
         return self.master_keys[-1]
+
+    def get_gateway_url(self) -> str:
+        return self.gateway_url or get_random_filen_gateway_url()
+
+    def get_egest_url(self) -> str:
+        return self.egest_url or get_random_filen_egest_url()
+
+    def get_ingest_url(self) -> str:
+        return self.ingest_url or get_random_filen_ingest_url()
 
     def raise_for_inaccessible_keys(self) -> None | NoReturn:
         """Raise InaccessibleKeysError if it is not possible to obtain the user's keys in any way"""
