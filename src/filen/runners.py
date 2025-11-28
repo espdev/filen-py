@@ -19,7 +19,7 @@ from multiprocessing.context import BaseContext
 import sys
 from uuid import UUID
 
-from anyio import CancelScope, create_task_group, to_interpreter, to_process, to_thread
+from anyio import CancelScope, Semaphore, create_task_group, to_interpreter, to_process, to_thread
 from anyio.abc import TaskGroup as AnyIOTaskGroup
 
 from filen._logging import logger
@@ -89,11 +89,17 @@ class TaskGroup:
 class AsyncTaskGroup:
     """Task group to run sync/async code in async tasks with storing results by id"""
 
-    def __init__(self, runner: 'AsyncRunnerBase', exception_in_result: bool = False) -> None:
+    def __init__(
+        self,
+        runner: 'AsyncRunnerBase',
+        concurrency: int | None = None,
+        exception_in_result: bool = False,
+    ) -> None:
         self._runner = runner
         self._runner_name = type(runner).__name__
         self._exception_in_result = exception_in_result
         self._tg: AnyIOTaskGroup | None = None
+        self._concurrency = Semaphore(concurrency or sys.maxsize)
         self._results = {}
         self._ts = 0
 
@@ -126,17 +132,18 @@ class AsyncTaskGroup:
         self._results[task_id] = None
 
         async def afunc(*a):
-            try:
-                if asyncio.iscoroutinefunction(func):
-                    result = await func(*a, **kwargs)
+            async with self._concurrency:
+                try:
+                    if asyncio.iscoroutinefunction(func):
+                        result = await func(*a, **kwargs)
+                    else:
+                        result = await self._runner.run_sync(func, *a, **kwargs)
+                except Exception as exc:
+                    if not self._exception_in_result:
+                        raise
+                    self._results[task_id] = exc
                 else:
-                    result = await self._runner.run_sync(func, *a, **kwargs)
-            except Exception as exc:
-                if not self._exception_in_result:
-                    raise
-                self._results[task_id] = exc
-            else:
-                self._results[task_id] = result
+                    self._results[task_id] = result
 
         name = f'{self._runner_name}-Task-{task_id}'
         self._tg.start_soon(afunc, *args, name=name)
@@ -254,8 +261,11 @@ class InterpreterRunner[**P](RunnerBase):
         )
 
 
+@dataclass
 class AsyncRunnerBase(AbstractRunner[AsyncTaskGroup]):
     """Base runner to run sync code in asynchronous event loop"""
+
+    concurrency: int | None = None
 
     @property
     @abstractmethod
@@ -267,10 +277,13 @@ class AsyncRunnerBase(AbstractRunner[AsyncTaskGroup]):
 
         return await self._run_sync(partial(func, **kwargs), *args)
 
-    def task_group(self, exception_in_result: bool = False) -> AsyncTaskGroup:
+    def task_group(self, concurrency: int | None = None, exception_in_result: bool = False) -> AsyncTaskGroup:
         """Create task group to run several tasks concurrently"""
 
-        return AsyncTaskGroup(self, exception_in_result=exception_in_result)
+        concurrency = concurrency or self.concurrency
+        logger.debug('Task group concurrency: %s', concurrency)
+
+        return AsyncTaskGroup(self, concurrency=concurrency, exception_in_result=exception_in_result)
 
 
 @dataclass

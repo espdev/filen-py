@@ -46,6 +46,27 @@ type ItemId = UUID | str
 NAME_MAX_LEN: Final = 255
 
 
+def _decrypt_folder_metadata(
+    metadata: str,
+    keys: str | list[str],
+    auth_version,
+    is_root: bool = False,
+) -> tuple[FolderMetadata, str]:
+    if is_root:
+        metadata = FolderMetadata(name=STORAGE_ROOT_NAME)
+        name_hashed = STORAGE_ROOT_NAME
+    else:
+        metadata = decrypt_metadata_model(FolderMetadata, metadata, keys)
+        name_hashed = hash_name(metadata.name, auth_version)
+    return metadata, name_hashed
+
+
+def _decrypt_file_metadata(metadata: str, keys: str | list[str], auth_version) -> tuple[FileMetadata, str]:
+    metadata = decrypt_metadata_model(FileMetadata, metadata, keys)
+    name_hashed = hash_name(metadata.name, auth_version)
+    return metadata, name_hashed
+
+
 class StorageMixIn:
     _context: Context
 
@@ -66,25 +87,6 @@ class StorageMixIn:
                 raise ValueError(f'name is too long in bytes ({name_len} > {max_len})')
         except ValueError as err:
             raise StorageError(f'Folder name {name!r} is not valid due to: {err}') from err
-
-    def _decrypt_file_metadata(self, metadata: str, keys: str | list[str]) -> tuple[FileMetadata, str]:
-        metadata = decrypt_metadata_model(FileMetadata, metadata, keys)
-        name_hashed = hash_name(metadata.name, self._context.auth_version)
-        return metadata, name_hashed
-
-    def _decrypt_folder_metadata(
-        self,
-        metadata: str,
-        keys: str | list[str],
-        is_root: bool = False,
-    ) -> tuple[FolderMetadata, str]:
-        if is_root:
-            metadata = FolderMetadata(name=STORAGE_ROOT_NAME)
-            name_hashed = STORAGE_ROOT_NAME
-        else:
-            metadata = decrypt_metadata_model(FolderMetadata, metadata, keys)
-            name_hashed = hash_name(metadata.name, self._context.auth_version)
-        return metadata, name_hashed
 
     @staticmethod
     def _collect_folder_content(files_info, folders_info, decryption_results, trash: bool = False) -> FolderContent:
@@ -140,7 +142,7 @@ class Storage(RepoBase, StorageMixIn):
 
         if str(uuid) != str(self._context.base_folder_uuid):
             master_keys = self._ensure_master_keys()
-            metadata, _ = self._decrypt_folder_metadata(folder_info.name_encrypted, master_keys)
+            metadata, _ = _decrypt_folder_metadata(folder_info.name_encrypted, master_keys, self._context.auth_version)
         else:
             metadata = FolderMetadata(name='')
 
@@ -159,10 +161,22 @@ class Storage(RepoBase, StorageMixIn):
 
         with self._runner.task_group() as tg:
             for i, file in enumerate(folder_content.uploads):
-                tg.add_task((StorageItemType.file, i), self._decrypt_file_metadata, file.metadata, master_keys)
+                tg.add_task(
+                    (StorageItemType.file, i),
+                    _decrypt_file_metadata,
+                    file.metadata,
+                    master_keys,
+                    self._context.auth_version,
+                )
 
             for i, folder in enumerate(folder_content.folders):
-                tg.add_task((StorageItemType.folder, i), self._decrypt_folder_metadata, folder.name, master_keys)
+                tg.add_task(
+                    (StorageItemType.folder, i),
+                    _decrypt_folder_metadata,
+                    folder.name,
+                    master_keys,
+                    self._context.auth_version,
+                )
 
         trash = uuid == FolderContentType.trash
         return self._collect_folder_content(folder_content.uploads, folder_content.folders, tg.results, trash=trash)
@@ -177,15 +191,22 @@ class Storage(RepoBase, StorageMixIn):
 
         with self._runner.task_group() as tg:
             for i, file in enumerate(folder_download.files):
-                tg.add_task((StorageItemType.file, i), self._decrypt_file_metadata, file.metadata, master_keys)
+                tg.add_task(
+                    (StorageItemType.file, i),
+                    _decrypt_file_metadata,
+                    file.metadata,
+                    master_keys,
+                    self._context.auth_version,
+                )
 
             for i, folder in enumerate(folder_download.folders):
                 is_root = folder.uuid == self._context.base_folder_uuid
                 tg.add_task(
                     (StorageItemType.folder, i),
-                    self._decrypt_folder_metadata,
+                    _decrypt_folder_metadata,
                     folder.name,
                     master_keys,
+                    self._context.auth_version,
                     is_root=is_root,
                 )
 
@@ -262,7 +283,7 @@ class Storage(RepoBase, StorageMixIn):
         master_keys = self._ensure_master_keys()
 
         file_info = self._api.v3.file.info(StorageItemUUIDRequestData(uuid=uuid)).data
-        metadata, _ = self._decrypt_file_metadata(file_info.metadata, master_keys)
+        metadata, _ = _decrypt_file_metadata(file_info.metadata, master_keys, self._context.auth_version)
 
         return FileInfo(**file_info.model_dump(exclude={'metadata'}), metadata=metadata)
 
@@ -446,7 +467,10 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
         if str(uuid) != str(self._context.base_folder_uuid):
             master_keys = await self._ensure_master_keys()
             metadata, _ = await self._runner.run_sync(
-                self._decrypt_folder_metadata, folder_info.name_encrypted, master_keys
+                _decrypt_folder_metadata,
+                folder_info.name_encrypted,
+                master_keys,
+                self._context.auth_version,
             )
         else:
             metadata = FolderMetadata(name='')
@@ -464,10 +488,22 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
 
         async with self._runner.task_group() as tg:
             for i, file in enumerate(folder_content.uploads):
-                tg.add_task((StorageItemType.file, i), self._decrypt_file_metadata, file.metadata, master_keys)
+                tg.add_task(
+                    (StorageItemType.file, i),
+                    _decrypt_file_metadata,
+                    file.metadata,
+                    master_keys,
+                    self._context.auth_version,
+                )
 
             for i, folder in enumerate(folder_content.folders):
-                tg.add_task((StorageItemType.folder, i), self._decrypt_folder_metadata, folder.name, master_keys)
+                tg.add_task(
+                    (StorageItemType.folder, i),
+                    _decrypt_folder_metadata,
+                    folder.name,
+                    master_keys,
+                    self._context.auth_version,
+                )
 
         trash = uuid == FolderContentType.trash
         return self._collect_folder_content(folder_content.uploads, folder_content.folders, tg.results, trash=trash)
@@ -480,15 +516,22 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
 
         async with self._runner.task_group() as tg:
             for i, file in enumerate(folder_download.files):
-                tg.add_task((StorageItemType.file, i), self._decrypt_file_metadata, file.metadata, master_keys)
+                tg.add_task(
+                    (StorageItemType.file, i),
+                    _decrypt_file_metadata,
+                    file.metadata,
+                    master_keys,
+                    self._context.auth_version,
+                )
 
             for i, folder in enumerate(folder_download.folders):
                 is_root = folder.uuid == self._context.base_folder_uuid
                 tg.add_task(
                     (StorageItemType.folder, i),
-                    self._decrypt_folder_metadata,
+                    _decrypt_folder_metadata,
                     folder.name,
                     master_keys,
+                    self._context.auth_version,
                     is_root=is_root,
                 )
 
@@ -558,7 +601,12 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
         master_keys = await self._ensure_master_keys()
 
         file_info = (await self._api.v3.file.info(StorageItemUUIDRequestData(uuid=uuid))).data
-        metadata, _ = await self._runner.run_sync(self._decrypt_file_metadata, file_info.metadata, master_keys)
+        metadata, _ = await self._runner.run_sync(
+            _decrypt_file_metadata,
+            file_info.metadata,
+            master_keys,
+            self._context.auth_version,
+        )
 
         return FileInfo(**file_info.model_dump(exclude={'metadata'}), metadata=metadata)
 
