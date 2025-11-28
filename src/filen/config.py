@@ -1,5 +1,5 @@
 from typing import Final
-from enum import IntEnum
+from enum import IntEnum, ReprEnum
 from functools import cached_property
 
 from pydantic import EmailStr, HttpUrl, SecretStr
@@ -44,10 +44,11 @@ class MetadataEncryptionVersion(IntEnum):
         return len(self.version_prefix)  # noqa
 
 
-class FileEncryptionVersion(IntEnum):
+class FileEncryptionVersion(float, ReprEnum):
     """All file encryption versions"""
 
     v1 = 1
+    v1_5 = 1.5
     v2 = 2
     v3 = 3
 
