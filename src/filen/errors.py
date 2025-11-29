@@ -97,7 +97,7 @@ class RequestErrorHandler:
                         ) from exc_val
 
                     case FilenErrorCode.folder_not_found | FilenErrorCode.file_not_found:
-                        raise StorageError(exc_val.message)
+                        raise StorageError(exc_val.message) from exc_val
 
                 return False
 
