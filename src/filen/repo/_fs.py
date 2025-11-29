@@ -198,7 +198,7 @@ class FS(RepoBase, FSMixIn):
         else:
             self._storage.move_folder(src_status.uuid, dst_status.uuid, overwrite_existing=overwrite_existing)
 
-    def rm(self, path: str, permanent: bool = False) -> None:
+    def rm(self, path: str, *, permanent: bool = False) -> None:
         """Delete a file or folder"""
 
         exists = self.exists(path)
@@ -411,7 +411,7 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
         else:
             await self._storage.move_folder(src_status.uuid, dst_status.uuid, overwrite_existing=overwrite_existing)
 
-    async def rm(self, path: str, permanent: bool = False) -> None:
+    async def rm(self, path: str, *, permanent: bool = False) -> None:
         """Delete a file or folder"""
 
         exists = await self.exists(path)
