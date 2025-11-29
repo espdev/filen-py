@@ -121,15 +121,15 @@ class FolderCreated(ValidationAliasedModel):
 class FolderCreateResponseData(ResponseData[FolderCreated]): ...
 
 
-class FolderExistsResponseData(ResponseData[StorageItemExists]): ...
-
-
 class FolderPresent(ValidationAliasedModel):
     present: bool
     trash: bool = False
 
 
 class FolderPresentResponseData(ResponseData[FolderPresent]): ...
+
+
+class FolderExistsResponseData(ResponseData[StorageItemExists]): ...
 
 
 class FolderMoveRequestData(RequestData):
