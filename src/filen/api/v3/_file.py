@@ -4,9 +4,11 @@ from .models.base import ResponseModel, StorageItemExistsRequestData, StorageIte
 from .models.file import (
     FileExistsResponseData,
     FileInfoResponseData,
+    FileMoveRequestData,
     FilePresentResponseData,
     FilePublicLinkEditRequestData,
     FilePublicLinkStatusResponseData,
+    FileRenameRequestData,
 )
 
 
@@ -14,6 +16,10 @@ class FileEndpoint(APIv3Endpoint):
     info = '/file'
     present = '/file/present'
     exists = '/file/exists'
+    trash = '/file/trash'
+    delete = '/file/delete/permanent'
+    move = '/file/move'
+    rename = '/file/rename'
     link_status = '/file/link/status'
     link_edit = '/file/link/edit'
 
@@ -27,6 +33,18 @@ class FileAPI(APIBase):
 
     def exists(self, data: StorageItemExistsRequestData) -> FileExistsResponseData:
         return self._post(FileEndpoint.exists, data, FileExistsResponseData)
+
+    def trash(self, data: StorageItemUUIDRequestData) -> ResponseModel:
+        return self._post(FileEndpoint.trash, data, ResponseModel)
+
+    def delete(self, data: StorageItemUUIDRequestData) -> ResponseModel:
+        return self._post(FileEndpoint.delete, data, ResponseModel)
+
+    def move(self, data: FileMoveRequestData) -> ResponseModel:
+        return self._post(FileEndpoint.move, data, ResponseModel)
+
+    def rename(self, data: FileRenameRequestData) -> ResponseModel:
+        return self._post(FileEndpoint.rename, data, ResponseModel)
 
     def link_status(self, data: StorageItemUUIDRequestData) -> FilePublicLinkStatusResponseData:
         return self._post(FileEndpoint.link_status, data, FilePublicLinkStatusResponseData)
@@ -44,6 +62,18 @@ class AsyncFileAPI(AsyncAPIBase):
 
     async def exists(self, data: StorageItemExistsRequestData) -> FileExistsResponseData:
         return await self._post(FileEndpoint.exists, data, FileExistsResponseData)
+
+    async def trash(self, data: StorageItemUUIDRequestData) -> ResponseModel:
+        return await self._post(FileEndpoint.trash, data, ResponseModel)
+
+    async def delete(self, data: StorageItemUUIDRequestData) -> ResponseModel:
+        return await self._post(FileEndpoint.delete, data, ResponseModel)
+
+    async def move(self, data: FileMoveRequestData) -> ResponseModel:
+        return await self._post(FileEndpoint.move, data, ResponseModel)
+
+    async def rename(self, data: FileRenameRequestData) -> ResponseModel:
+        return await self._post(FileEndpoint.rename, data, ResponseModel)
 
     async def link_status(self, data: StorageItemUUIDRequestData) -> FilePublicLinkStatusResponseData:
         return await self._post(FileEndpoint.link_status, data, FilePublicLinkStatusResponseData)

@@ -38,6 +38,18 @@ class FilePresentResponseData(ResponseData[FilePresent]): ...
 class FileExistsResponseData(ResponseData[StorageItemExists]): ...
 
 
+class FileMoveRequestData(RequestData):
+    uuid: UUID
+    to: UUID
+
+
+class FileRenameRequestData(RequestData):
+    uuid: UUID
+    name: str
+    metadata: str
+    name_hashed: str
+
+
 class FilePublicLinkStatusResponseData(ResponseData[PublicLinkStatus]): ...
 
 
