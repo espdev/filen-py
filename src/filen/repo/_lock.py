@@ -7,7 +7,7 @@ from uuid import NAMESPACE_OID, uuid5
 from filen._logging import logger
 from filen.api.v3.models.user import LockRequestData
 
-from ._base import AsyncRepoBase, RepoBase
+from ._base import AsyncRepoBase, LockResource, RepoBase
 
 MAX_TRIES: Final = 100_000
 TRY_INTERVAL: Final = 1.0  # sec
@@ -33,7 +33,7 @@ class Lock(RepoBase):
     _shared_state_lock: ClassVar[threading.Lock] = threading.Lock()
     _shared_state: ClassVar[dict[str, LockSharedState]] = {}
 
-    def __init__(self, context, api, runner, resource: str) -> None:
+    def __init__(self, context, api, runner, resource: LockResource) -> None:
         super().__init__(context, api, runner)
         self._resource = resource
         self._lock_uuid = uuid5(NAMESPACE_OID, resource)
@@ -161,7 +161,7 @@ class AsyncLock(AsyncRepoBase):
     _shared_state_lock: ClassVar[asyncio.Lock] = asyncio.Lock()
     _shared_state: ClassVar[dict[str, AsyncLockSharedState]] = {}
 
-    def __init__(self, context, api, runner, resource: str) -> None:
+    def __init__(self, context, api, runner, resource: LockResource) -> None:
         super().__init__(context, api, runner)
         self._resource = resource
         self._lock_uuid = uuid5(NAMESPACE_OID, resource)

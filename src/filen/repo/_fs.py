@@ -155,6 +155,11 @@ class FS(RepoBase, FSMixIn):
         folder_content = self._storage.folder_content('trash')
         return self._collect_items_in_trash(folder_content, item_type)
 
+    def empty_trash(self) -> None:
+        """Empty the trash"""
+
+        self._storage.empty_trash()
+
     def mkdir(self, path: str) -> UUID:
         """Create a directory on the cloud storage with parents for given path
 
@@ -370,6 +375,11 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
 
         folder_content = await self._storage.folder_content('trash')
         return self._collect_items_in_trash(folder_content, item_type)
+
+    async def empty_trash(self) -> None:
+        """Empty the trash"""
+
+        await self._storage.empty_trash()
 
     async def mkdir(self, path: str) -> UUID:
         """Create a directory on the cloud storage with parents for given path"""

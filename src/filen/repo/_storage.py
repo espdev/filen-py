@@ -30,7 +30,7 @@ from filen.crypto import (
 )
 from filen.errors import StorageError
 
-from ._base import AsyncRepoBase, RepoBase, repo
+from ._base import AsyncRepoBase, LockResource, RepoBase, repo
 from ._lock import AsyncLock, Lock
 from .models import (
     CreateFolderInfo,
@@ -138,7 +138,7 @@ class Storage(RepoBase, StorageMixIn):
     Provides methods for manipulating with directories and files in the cloud storage.
     """
 
-    _drive_write_lock: Lock = repo(Lock, resource='drive-write')
+    _drive_write_lock: Lock = repo(Lock, resource=LockResource.drive_write)
 
     def base_folder(self) -> UUID:
         """Retrieve the base foder UUID (root srorage UUID)"""
@@ -423,6 +423,24 @@ class Storage(RepoBase, StorageMixIn):
         with self._drive_write_lock:
             self._api.v3.file.rename(data)
 
+    def empty_trash(self) -> None:
+        """Empty the trash"""
+
+        trash_content = self.folder_content(FolderContentType.trash)
+
+        if not trash_content.files and not trash_content.folders:
+            return
+
+        with self._drive_write_lock:
+            with self._runner.task_group() as tg:
+                for file in trash_content.files:
+                    data = StorageItemUUIDRequestData(uuid=file.uuid)
+                    tg.add_task(None, self._api.v3.file.delete, data)
+
+                for folder in trash_content.folders:
+                    data = StorageItemUUIDRequestData(uuid=folder.uuid)
+                    tg.add_task(None, self._api.v3.dir.delete, data)
+
     def public_link_status(self, uuid: ItemId, link_type: StorageItemType | str | None = None) -> PublicLinkStatus:
         data = StorageItemUUIDRequestData(uuid=uuid)
 
@@ -593,7 +611,7 @@ class Storage(RepoBase, StorageMixIn):
 class AsyncStorage(AsyncRepoBase, StorageMixIn):
     """Async Storage repository"""
 
-    _drive_write_lock: AsyncLock = repo(AsyncLock, resource='drive-write')
+    _drive_write_lock: AsyncLock = repo(AsyncLock, resource=LockResource.drive_write)
 
     async def base_folder(self) -> UUID:
         return await self._ensure_base_folder_uuid()
@@ -870,6 +888,24 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
 
         async with self._drive_write_lock:
             await self._api.v3.file.rename(data)
+
+    async def empty_trash(self) -> None:
+        """Empty the trash"""
+
+        trash_content = await self.folder_content(FolderContentType.trash)
+
+        if not trash_content.files and not trash_content.folders:
+            return
+
+        async with self._drive_write_lock:
+            async with self._runner.task_group() as tg:
+                for file in trash_content.files:
+                    data = StorageItemUUIDRequestData(uuid=file.uuid)
+                    tg.add_task(None, self._api.v3.file.delete, data)
+
+                for folder in trash_content.folders:
+                    data = StorageItemUUIDRequestData(uuid=folder.uuid)
+                    tg.add_task(None, self._api.v3.dir.delete, data)
 
     async def public_link_status(
         self,

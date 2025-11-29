@@ -43,11 +43,16 @@ class TaskGroup:
 
     def add_task[T, **P](
         self,
-        task_id: TaskId,
+        task_id: TaskId | None,
         func: Callable[P, T],
         *args: P.args,
         **kwargs: P.kwargs,
     ):
+        """Run a task function in the group concurrently"""
+
+        if task_id is None:
+            task_id = len(self._results)
+
         if task_id in self._results:
             raise ValueError(f'A task with task_id {task_id} is already added.')
 
@@ -115,7 +120,7 @@ class AsyncTaskGroup:
 
     def add_task[T, **P](
         self,
-        task_id: TaskId,
+        task_id: TaskId | None,
         func: Callable[P, T | Awaitable[T]],
         *args: P.args,
         **kwargs: P.kwargs,
@@ -124,6 +129,9 @@ class AsyncTaskGroup:
 
         if self._tg is None:
             raise ValueError('Task group is not initialized. The context manager must be used.')
+
+        if task_id is None:
+            task_id = len(self._results)
 
         if task_id in self._results:
             raise ValueError(f'A task with task_id {task_id} is already added.')

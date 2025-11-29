@@ -1,4 +1,5 @@
 from typing import Type
+from enum import StrEnum
 from uuid import UUID
 
 from filen._context import Context
@@ -170,6 +171,12 @@ class AsyncEnsureContextMixIn:
 
 class AsyncRepoBase(RepoGenericBase[AsyncFilenAPI, AsyncRunnerBase], AsyncEnsureContextMixIn, RepoFactoryMixIn):
     """Repository base class for all async repository classes"""
+
+
+class LockResource(StrEnum):
+    """All locked resources"""
+
+    drive_write = 'drive-write'
 
 
 repo = FactoryDescriptor[RepoBase | AsyncRepoBase]
