@@ -13,6 +13,7 @@ from filen.api.v3.models.dir import (
     FolderMoveRequestData,
     FolderPublicLinkAddRequestData,
     FolderPublicLinkEditRequestData,
+    FolderRenameRequestData,
 )
 from filen.api.v3.models.file import FilePublicLinkEditRequestData
 from filen.api.v3.models.link import PublicLinkExpiration
@@ -39,6 +40,7 @@ from .models import (
     FolderMetadata,
     PublicLinkStatus,
     StorageItemExists,
+    StorageItemPresent,
     StorageItemType,
 )
 
@@ -90,6 +92,13 @@ class StorageMixIn:
             raise StorageError(f'Folder name {name!r} is not valid due to: {err}') from err
 
     @staticmethod
+    def _normalize_uuid(uuid: ItemId) -> UUID:
+        if isinstance(uuid, str):
+            return UUID(uuid)
+        else:
+            return uuid
+
+    @staticmethod
     def _collect_folder_content(files_info, folders_info, decryption_results, trash: bool = False) -> FolderContent:
         files = []
         folders = []
@@ -139,9 +148,11 @@ class Storage(RepoBase, StorageMixIn):
         """Retrieve folder info with metadata decryption"""
 
         uuid = uuid if uuid else self._ensure_base_folder_uuid()
+        uuid = self._normalize_uuid(uuid)
+
         folder_info = self._api.v3.dir.info(StorageItemUUIDRequestData(uuid=uuid)).data
 
-        if str(uuid) != str(self._context.base_folder_uuid):
+        if uuid != self._context.base_folder_uuid:
             master_keys = self._ensure_master_keys()
             metadata, _ = _decrypt_folder_metadata(folder_info.name_encrypted, master_keys, self._context.auth_version)
         else:
@@ -213,8 +224,16 @@ class Storage(RepoBase, StorageMixIn):
 
         return self._collect_folder_content(folder_download.files, folder_download.folders, tg.results)
 
+    def folder_present(self, uuid: ItemId) -> StorageItemPresent:
+        """Checnk if a folder with given uuid exists"""
+
+        response = self._api.v3.dir.present(StorageItemUUIDRequestData(uuid=uuid))
+        if response.data.present:
+            return response.data_as(StorageItemPresent, type=StorageItemType.folder)
+        return StorageItemPresent.not_present()
+
     def folder_exists(self, name: str, parent: ItemId | None = None) -> StorageItemExists:
-        """Check if a forlder exists"""
+        """Check if a forlder with given name exists"""
 
         if parent is None:
             parent = self._ensure_base_folder_uuid()
@@ -269,6 +288,9 @@ class Storage(RepoBase, StorageMixIn):
     def move_folder(self, uuid: ItemId, to_uuid: ItemId) -> None:
         """Move a folder to another folder"""
 
+        uuid = self._normalize_uuid(uuid)
+        to_uuid = self._normalize_uuid(to_uuid)
+
         if uuid == to_uuid:
             raise StorageError('The folder cannot be moved into itself.')
 
@@ -276,6 +298,38 @@ class Storage(RepoBase, StorageMixIn):
 
         with self._drive_write_lock:
             self._api.v3.dir.move(data)
+
+    def rename_folder(self, uuid: ItemId, new_name: str) -> None:
+        uuid = self._normalize_uuid(uuid)
+
+        if uuid == self._ensure_base_folder_uuid():
+            raise StorageError("Can't rename the root storage folder.")
+
+        folder_info = self.folder_info(uuid)
+        exists = self.folder_exists(new_name, folder_info.parent)
+        if exists:
+            if exists.uuid == uuid:
+                return
+            raise StorageError('A folder with the same name already exists in this folder.')
+
+        key = self._ensure_master_key()
+        metadata = FolderMetadata(name=new_name)
+
+        metadata_enc = encrypt_metadata_model(metadata, key)
+        name_hashed = hash_name(new_name, self._context.auth_version)
+
+        data = FolderRenameRequestData(uuid=uuid, name=metadata_enc, name_hashed=name_hashed)
+
+        with self._drive_write_lock:
+            self._api.v3.dir.rename(data)
+
+    def file_present(self, uuid: ItemId) -> StorageItemPresent:
+        """Checnk if a file with given uuid exists"""
+
+        response = self._api.v3.file.present(StorageItemUUIDRequestData(uuid=uuid))
+        if response.data.present:
+            return response.data_as(StorageItemPresent, type=StorageItemType.file)
+        return StorageItemPresent.not_present()
 
     def file_exists(self, name: str, parent: ItemId | None = None) -> StorageItemExists:
         """Check if a file exists"""
@@ -386,6 +440,8 @@ class Storage(RepoBase, StorageMixIn):
     ) -> PublicLinkStatus:
         """Creates a public link for a file or folder"""
 
+        uuid = self._normalize_uuid(uuid)
+
         if uuid == self._ensure_base_folder_uuid():
             raise StorageError('A public link cannot be created for the storage root folder.')
 
@@ -474,9 +530,11 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
 
     async def folder_info(self, uuid: ItemId | None = None) -> FolderInfo:
         uuid = uuid if uuid else (await self._ensure_base_folder_uuid())
+        uuid = self._normalize_uuid(uuid)
+
         folder_info = (await self._api.v3.dir.info(StorageItemUUIDRequestData(uuid=uuid))).data
 
-        if str(uuid) != str(self._context.base_folder_uuid):
+        if uuid != self._context.base_folder_uuid:
             master_keys = await self._ensure_master_keys()
             metadata, _ = await self._runner.run_sync(
                 _decrypt_folder_metadata,
@@ -549,6 +607,14 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
 
         return self._collect_folder_content(folder_download.files, folder_download.folders, tg.results)
 
+    async def folder_present(self, uuid: ItemId) -> StorageItemPresent:
+        """Checnk if a folder with given uuid exists"""
+
+        response = await self._api.v3.dir.present(StorageItemUUIDRequestData(uuid=uuid))
+        if response.data.present:
+            return response.data_as(StorageItemPresent, type=StorageItemType.folder)
+        return StorageItemPresent.not_present()
+
     async def folder_exists(self, name: str, parent: ItemId | None = None) -> StorageItemExists:
         if parent is None:
             parent = await self._ensure_base_folder_uuid()
@@ -600,6 +666,9 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
     async def move_folder(self, uuid: ItemId, to_uuid: ItemId) -> None:
         """Move a folder to another folder"""
 
+        uuid = self._normalize_uuid(uuid)
+        to_uuid = self._normalize_uuid(to_uuid)
+
         if uuid == to_uuid:
             raise StorageError('The folder cannot be moved into itself.')
 
@@ -607,6 +676,38 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
 
         async with self._drive_write_lock:
             await self._api.v3.dir.move(data)
+
+    async def rename_folder(self, uuid: ItemId, new_name: str) -> None:
+        uuid = self._normalize_uuid(uuid)
+
+        if uuid == (await self._ensure_base_folder_uuid()):
+            raise StorageError("Can't rename the root storage folder.")
+
+        folder_info = await self.folder_info(uuid)
+        exists = await self.folder_exists(new_name, folder_info.parent)
+        if exists:
+            if exists.uuid == uuid:
+                return
+            raise StorageError('A folder with the same name already exists in this folder.')
+
+        key = await self._ensure_master_key()
+        metadata = FolderMetadata(name=new_name)
+
+        metadata_enc = await self._runner.run_sync(encrypt_metadata_model, metadata, key)
+        name_hashed = await self._runner.run_sync(hash_name, new_name, self._context.auth_version)
+
+        data = FolderRenameRequestData(uuid=uuid, name=metadata_enc, name_hashed=name_hashed)
+
+        async with self._drive_write_lock:
+            await self._api.v3.dir.rename(data)
+
+    async def file_present(self, uuid: ItemId) -> StorageItemPresent:
+        """Checnk if a file with given uuid exists"""
+
+        response = await self._api.v3.file.present(StorageItemUUIDRequestData(uuid=uuid))
+        if response.data.present:
+            return response.data_as(StorageItemPresent, type=StorageItemType.file)
+        return StorageItemPresent.not_present()
 
     async def file_exists(self, name: str, parent: ItemId | None = None) -> StorageItemExists:
         if parent is None:
@@ -725,6 +826,8 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
         download_btn: bool = True,
     ) -> PublicLinkStatus:
         """Creates a public link for a file or folder"""
+
+        uuid = self._normalize_uuid(uuid)
 
         if uuid == (await self._ensure_base_folder_uuid()):
             raise StorageError('A public link cannot be created for the storage root folder.')

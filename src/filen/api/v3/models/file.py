@@ -26,6 +26,15 @@ class FileInfo(ValidationAliasedModel):
 class FileInfoResponseData(ResponseData[FileInfo]): ...
 
 
+class FilePresent(ValidationAliasedModel):
+    present: bool
+    trash: bool = False
+    versioned: bool = False
+
+
+class FilePresentResponseData(ResponseData[FilePresent]): ...
+
+
 class FileExistsResponseData(ResponseData[StorageItemExists]): ...
 
 

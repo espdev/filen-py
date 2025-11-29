@@ -4,6 +4,7 @@ from .models.base import ResponseModel, StorageItemExistsRequestData, StorageIte
 from .models.file import (
     FileExistsResponseData,
     FileInfoResponseData,
+    FilePresentResponseData,
     FilePublicLinkEditRequestData,
     FilePublicLinkStatusResponseData,
 )
@@ -11,6 +12,7 @@ from .models.file import (
 
 class FileEndpoint(APIv3Endpoint):
     info = '/file'
+    present = '/file/present'
     exists = '/file/exists'
     link_status = '/file/link/status'
     link_edit = '/file/link/edit'
@@ -19,6 +21,9 @@ class FileEndpoint(APIv3Endpoint):
 class FileAPI(APIBase):
     def info(self, data: StorageItemUUIDRequestData) -> FileInfoResponseData:
         return self._post(FileEndpoint.info, data, FileInfoResponseData)
+
+    def present(self, data: StorageItemUUIDRequestData) -> FilePresentResponseData:
+        return self._post(FileEndpoint.present, data, FilePresentResponseData)
 
     def exists(self, data: StorageItemExistsRequestData) -> FileExistsResponseData:
         return self._post(FileEndpoint.exists, data, FileExistsResponseData)
@@ -33,6 +38,9 @@ class FileAPI(APIBase):
 class AsyncFileAPI(AsyncAPIBase):
     async def info(self, data: StorageItemUUIDRequestData) -> FileInfoResponseData:
         return await self._post(FileEndpoint.info, data, FileInfoResponseData)
+
+    async def present(self, data: StorageItemUUIDRequestData) -> FilePresentResponseData:
+        return await self._post(FileEndpoint.present, data, FilePresentResponseData)
 
     async def exists(self, data: StorageItemExistsRequestData) -> FileExistsResponseData:
         return await self._post(FileEndpoint.exists, data, FileExistsResponseData)

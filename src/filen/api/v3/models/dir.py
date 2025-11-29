@@ -124,9 +124,23 @@ class FolderCreateResponseData(ResponseData[FolderCreated]): ...
 class FolderExistsResponseData(ResponseData[StorageItemExists]): ...
 
 
+class FolderPresent(ValidationAliasedModel):
+    present: bool
+    trash: bool = False
+
+
+class FolderPresentResponseData(ResponseData[FolderPresent]): ...
+
+
 class FolderMoveRequestData(RequestData):
     uuid: UUID
     to: UUID
+
+
+class FolderRenameRequestData(RequestData):
+    uuid: UUID
+    name: str
+    name_hashed: str
 
 
 class FolderPublicLinkStatusResponseData(ResponseData[PublicLinkStatus]): ...

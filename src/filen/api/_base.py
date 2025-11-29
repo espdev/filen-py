@@ -47,7 +47,7 @@ class APIGenericBase[TClient: Client | AsyncClient]:
     def is_closed(self) -> bool:
         return self._http_client.is_closed  # noqa
 
-    def _get_api_url(self, endpoint: str) -> str:
+    def _get_api_url(self, endpoint: APIEndpoint) -> str:
         base_url = self._context.get_gateway_url().rstrip('/')
         return f'{base_url}{endpoint}'
 

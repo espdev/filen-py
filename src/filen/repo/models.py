@@ -136,6 +136,20 @@ class StorageItemType(StrEnum):
 type StorageItemTypeLiteral = Literal['folder', 'file']
 
 
+class StorageItemPresent(BaseModel):
+    present: bool
+    trash: bool = False
+    versioned: bool | None = None
+    type: StorageItemType | None = None
+
+    def __bool__(self) -> bool:
+        return self.present
+
+    @classmethod
+    def not_present(cls) -> Self:
+        return cls(present=False)
+
+
 class StorageItemExists(BaseModel):
     uuid: UUID | None
     type: StorageItemType | None

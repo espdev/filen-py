@@ -74,6 +74,8 @@ class StorageError(FilenError): ...
 class FilenErrorCode(StrEnum):
     email_or_password_wrong = auto()
     enter_2fa = auto()
+    folder_not_found = auto()
+    file_not_found = auto()
 
 
 class RequestErrorHandler:
@@ -93,6 +95,10 @@ class RequestErrorHandler:
                             message=exc_val.message,
                             code=exc_val.code,
                         ) from exc_val
+
+                    case FilenErrorCode.folder_not_found | FilenErrorCode.file_not_found:
+                        raise StorageError(exc_val.message)
+
                 return False
 
             case ResponseParseError():

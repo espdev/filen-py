@@ -10,9 +10,11 @@ from .models.dir import (
     FolderExistsResponseData,
     FolderInfoResponseData,
     FolderMoveRequestData,
+    FolderPresentResponseData,
     FolderPublicLinkAddRequestData,
     FolderPublicLinkEditRequestData,
     FolderPublicLinkStatusResponseData,
+    FolderRenameRequestData,
 )
 
 
@@ -20,15 +22,17 @@ class DirEndpoint(APIv3Endpoint):
     info = '/dir'
     content = '/dir/content'
     download = '/dir/download'
+    present = '/dir/present'
     exists = '/dir/exists'
     create = '/dir/create'
+    trash = '/dir/trash'
+    delete = '/dir/delete/permanent'
+    move = '/dir/move'
+    rename = '/dir/rename'
     link_status = '/dir/link/status'
     link_add = '/dir/link/add'
     link_edit = '/dir/link/edit'
     link_remove = '/dir/link/remove'
-    trash = '/dir/trash'
-    delete = '/dir/delete/permanent'
-    move = '/dir/move'
 
 
 class DirAPI(APIBase):
@@ -40,6 +44,9 @@ class DirAPI(APIBase):
 
     def download(self, data: StorageItemUUIDRequestData) -> FolderDownloadResponseData:
         return self._post(DirEndpoint.download, data, FolderDownloadResponseData)
+
+    def present(self, data: StorageItemUUIDRequestData) -> FolderPresentResponseData:
+        return self._post(DirEndpoint.present, data, FolderPresentResponseData)
 
     def exists(self, data: StorageItemExistsRequestData) -> FolderExistsResponseData:
         return self._post(DirEndpoint.exists, data, FolderExistsResponseData)
@@ -55,6 +62,9 @@ class DirAPI(APIBase):
 
     def move(self, data: FolderMoveRequestData) -> ResponseModel:
         return self._post(DirEndpoint.move, data, ResponseModel)
+
+    def rename(self, data: FolderRenameRequestData) -> ResponseModel:
+        return self._post(DirEndpoint.rename, data, ResponseModel)
 
     def link_status(self, data: StorageItemUUIDRequestData) -> FolderPublicLinkStatusResponseData:
         return self._post(DirEndpoint.link_status, data, FolderPublicLinkStatusResponseData)
@@ -79,6 +89,9 @@ class AsyncDirAPI(AsyncAPIBase):
     async def download(self, data: StorageItemUUIDRequestData) -> FolderDownloadResponseData:
         return await self._post(DirEndpoint.download, data, FolderDownloadResponseData)
 
+    async def present(self, data: StorageItemUUIDRequestData) -> FolderPresentResponseData:
+        return await self._post(DirEndpoint.present, data, FolderPresentResponseData)
+
     async def exists(self, data: StorageItemExistsRequestData) -> FolderExistsResponseData:
         return await self._post(DirEndpoint.exists, data, FolderExistsResponseData)
 
@@ -93,6 +106,9 @@ class AsyncDirAPI(AsyncAPIBase):
 
     async def move(self, data: FolderMoveRequestData) -> ResponseModel:
         return await self._post(DirEndpoint.move, data, ResponseModel)
+
+    async def rename(self, data: FolderRenameRequestData) -> ResponseModel:
+        return await self._post(DirEndpoint.rename, data, ResponseModel)
 
     async def link_status(self, data: StorageItemUUIDRequestData) -> FolderPublicLinkStatusResponseData:
         return await self._post(DirEndpoint.link_status, data, FolderPublicLinkStatusResponseData)
