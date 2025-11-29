@@ -89,7 +89,7 @@ class FSMixIn:
                 return folders + files
 
     @staticmethod
-    def _make_folder_tree(path: str, uuid: UUID, content: FolderContent, detail: bool) -> Tree:
+    def _walk_folder_tree(path: str, uuid: UUID, content: FolderContent, detail: bool) -> Tree:
         """Make a folder tree from flattened downloaded folder content in os.walk format"""
 
         tree_map = {uuid: [[], []]}
@@ -119,22 +119,22 @@ class FSMixIn:
 
         tree: Tree = []
 
-        for parent, items_info in tree_map.items():
+        for parent, (folders, files) in tree_map.items():
             if detail:
-                items_info[0].sort(key=lambda info: info.name)
-                items_info[1].sort(key=lambda info: info.name)
+                folders.sort(key=lambda info: info.name)
+                files.sort(key=lambda info: info.name)
             else:
-                items_info[0].sort()
-                items_info[1].sort()
+                folders.sort()
+                files.sort()
 
-            tree.append((path_map[parent], items_info[0], items_info[1]))
+            tree.append((path_map[parent], folders, files))
 
         tree.sort(key=lambda item: item[0])
         return tree
 
 
 class FS(RepoBase, FSMixIn):
-    """High-level filesystem-like repository to manipulate files and folders"""
+    """High-level filesystem-like repository to manipulate files and folders in the storage"""
 
     _storage: Storage = repo(Storage)
 
@@ -200,7 +200,7 @@ class FS(RepoBase, FSMixIn):
         folder_content = self._storage.folder_download(exists.uuid)
 
         # make folder tree in os.walk format
-        return self._make_folder_tree(path, exists.uuid, folder_content, detail)
+        return self._walk_folder_tree(path, exists.uuid, folder_content, detail)
 
     def trash(
         self,
@@ -365,7 +365,7 @@ class FS(RepoBase, FSMixIn):
 
 
 class AsyncFS(AsyncRepoBase, FSMixIn):
-    """Async High-level filesystem-like repository to manipulate files and folders"""
+    """Async high-level filesystem-like repository to manipulate files and folders in the storage"""
 
     _storage: AsyncStorage = repo(AsyncStorage)
 
@@ -431,7 +431,7 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
         folder_content = await self._storage.folder_download(exists.uuid)
 
         # make folder tree in os.walk format
-        return self._make_folder_tree(path, exists.uuid, folder_content, detail)
+        return self._walk_folder_tree(path, exists.uuid, folder_content, detail)
 
     async def trash(
         self,
