@@ -27,7 +27,7 @@ def cloud_test_folder(filen_client):
     try:
         yield CLOUD_TEST_FOLDER
     finally:
-        filen_client.fs.rm(CLOUD_TEST_FOLDER, permanent=True)
+        filen_client.fs.remove(CLOUD_TEST_FOLDER, permanent=True)
 
 
 @pytest.fixture
@@ -66,7 +66,7 @@ def test_mkdir_rm_permanent(cloud_test_folder, filen_client):
     folder_uuid = filen_client.fs.mkdir(path1)
     assert filen_client.fs.exists(path1).uuid == folder_uuid
 
-    filen_client.fs.rm(f'{cloud_test_folder}/{name1}', permanent=True)
+    filen_client.fs.remove(f'{cloud_test_folder}/{name1}', permanent=True)
     assert filen_client.fs.exists(path1).exists is False
 
 
@@ -78,7 +78,7 @@ async def test_async_mkdir_rm_permanent(cloud_test_folder, async_filen_client):
     folder_uuid = await async_filen_client.fs.mkdir(path)
     assert (await async_filen_client.fs.exists(path)).uuid == folder_uuid
 
-    await async_filen_client.fs.rm(f'{cloud_test_folder}/{name1}', permanent=True)
+    await async_filen_client.fs.remove(f'{cloud_test_folder}/{name1}', permanent=True)
     assert (await async_filen_client.fs.exists(path)).exists is False
 
 
@@ -87,7 +87,7 @@ def test_mv_folder(paths_for_mvdir, filen_client):
 
     filen_client.fs.mkdir(path2)
     filen_client.fs.mkdir(path3)
-    filen_client.fs.mv(path1, path3)
+    filen_client.fs.move(path1, path3)
 
     assert filen_client.fs.exists(path2).exists is False
     assert filen_client.fs.exists(path4).exists is True
@@ -98,7 +98,7 @@ async def test_async_mv_folder(paths_for_mvdir, async_filen_client):
 
     await async_filen_client.fs.mkdir(path2)
     await async_filen_client.fs.mkdir(path3)
-    await async_filen_client.fs.mv(path1, path3)
+    await async_filen_client.fs.move(path1, path3)
 
     assert (await async_filen_client.fs.exists(path2)).exists is False
     assert (await async_filen_client.fs.exists(path4)).exists is True

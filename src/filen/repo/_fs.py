@@ -165,7 +165,7 @@ class FS(RepoBase, FSMixIn):
             return folder_exists
         return self._storage.file_exists(parts[-1], parent)
 
-    def ls(self, path: str, detail: bool = False) -> list[str | FileDetail | FolderDetail]:
+    def list(self, path: str, detail: bool = False) -> list[str | FileDetail | FolderDetail]:
         """List files and folders at path"""
 
         if path in (TRASH_PATH, TRASH_PATH.strip('/')):
@@ -234,7 +234,7 @@ class FS(RepoBase, FSMixIn):
 
         return parent_uuid
 
-    def mv(
+    def move(
         self,
         src_path: str,
         dst_path: str,
@@ -259,7 +259,7 @@ class FS(RepoBase, FSMixIn):
         else:
             self._storage.move_folder(src_status.uuid, dst_status.uuid, overwrite_existing=overwrite_existing)
 
-    def rm(self, path: str, *, permanent: bool = False) -> None:
+    def remove(self, path: str, *, permanent: bool = False) -> None:
         """Delete a file or folder"""
 
         exists = self.exists(path)
@@ -396,7 +396,7 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
             return folder_exists
         return await self._storage.file_exists(parts[-1], parent)
 
-    async def ls(self, path: str, detail: bool = False) -> list[str | FileDetail | FolderDetail]:
+    async def list(self, path: str, detail: bool = False) -> list[str | FileDetail | FolderDetail]:
         """List files and folders at path"""
 
         if path in (TRASH_PATH, TRASH_PATH.strip('/')):
@@ -462,7 +462,7 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
 
         return parent_uuid
 
-    async def mv(
+    async def move(
         self,
         src_path: str,
         dst_path: str,
@@ -487,7 +487,7 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
         else:
             await self._storage.move_folder(src_status.uuid, dst_status.uuid, overwrite_existing=overwrite_existing)
 
-    async def rm(self, path: str, *, permanent: bool = False) -> None:
+    async def remove(self, path: str, *, permanent: bool = False) -> None:
         """Delete a file or folder"""
 
         exists = await self.exists(path)
