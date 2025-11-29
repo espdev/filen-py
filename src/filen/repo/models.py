@@ -207,6 +207,8 @@ class FileDetail(BaseModel):
 
     @classmethod
     def from_info(cls, path: str, file_info: FileInfo) -> Self:
+        path = path.removesuffix(file_info.metadata.name).rstrip('/')
+
         return cls(
             path=f'{path}/{file_info.metadata.name}',
             name=file_info.metadata.name,
@@ -236,6 +238,8 @@ class FolderDetail(BaseModel):
 
     @classmethod
     def from_info(cls, path: str, folder_info: FolderInfo) -> Self:
+        path = path.removesuffix(folder_info.name).rstrip('/')
+
         return cls(
             path=f'{path}/{folder_info.name}',
             name=folder_info.name,
