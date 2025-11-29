@@ -45,8 +45,8 @@ class FileMoveRequestData(RequestData):
 
 class FileRenameRequestData(RequestData):
     uuid: UUID
-    name: str
     metadata: str
+    name: str
     name_hashed: str
 
 

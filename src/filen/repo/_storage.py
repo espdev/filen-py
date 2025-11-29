@@ -15,7 +15,7 @@ from filen.api.v3.models.dir import (
     FolderPublicLinkEditRequestData,
     FolderRenameRequestData,
 )
-from filen.api.v3.models.file import FilePublicLinkEditRequestData
+from filen.api.v3.models.file import FileMoveRequestData, FilePublicLinkEditRequestData, FileRenameRequestData
 from filen.api.v3.models.link import PublicLinkExpiration
 from filen.config import FILEN_PUBLIC_FILE_LINK_BASE_URL, FILEN_PUBLIC_FOLDER_LINK_BASE_URL, STORAGE_ROOT_NAME
 from filen.crypto import (
@@ -285,8 +285,10 @@ class Storage(RepoBase, StorageMixIn):
             else:
                 self._api.v3.dir.trash(data)
 
-    def move_folder(self, uuid: ItemId, to_uuid: ItemId) -> None:
+    def move_folder(self, uuid: ItemId, to_uuid: ItemId, *, overwrite_existing: bool = False) -> None:
         """Move a folder to another folder"""
+
+        # TODO: Add an option to merge the folder with an existing folder with the overwrite_existing option for files?
 
         uuid = self._normalize_uuid(uuid)
         to_uuid = self._normalize_uuid(to_uuid)
@@ -294,12 +296,17 @@ class Storage(RepoBase, StorageMixIn):
         if uuid == to_uuid:
             raise StorageError('The folder cannot be moved into itself.')
 
+        if overwrite_existing:
+            raise NotImplementedError('overwrite_existing option is not implemented for move_folder')
+
         data = FolderMoveRequestData(uuid=uuid, to=to_uuid)
 
         with self._drive_write_lock:
             self._api.v3.dir.move(data)
 
     def rename_folder(self, uuid: ItemId, new_name: str) -> None:
+        """Rename a folder"""
+
         uuid = self._normalize_uuid(uuid)
 
         if uuid == self._ensure_base_folder_uuid():
@@ -352,6 +359,67 @@ class Storage(RepoBase, StorageMixIn):
         metadata, _ = _decrypt_file_metadata(file_info.metadata, master_keys, self._context.auth_version)
 
         return FileInfo(**file_info.model_dump(exclude={'metadata'}), metadata=metadata)
+
+    def delete_file(self, uuid: ItemId, permanent: bool = False) -> None:
+        """Move a file to trash or delete permanently"""
+
+        data = StorageItemUUIDRequestData(uuid=uuid)
+
+        with self._drive_write_lock:
+            if permanent:
+                self._api.v3.file.delete(data)
+            else:
+                self._api.v3.file.trash(data)
+
+    def move_file(self, uuid: ItemId, to_uuid: ItemId, *, overwrite_existing: bool = False) -> None:
+        """Move a file to another folder"""
+
+        uuid = self._normalize_uuid(uuid)
+        to_uuid = self._normalize_uuid(to_uuid)
+
+        file_info = self.file_info(uuid)
+        exists = self.file_exists(file_info.metadata.name, to_uuid)
+
+        if exists:
+            if overwrite_existing:
+                self.delete_file(exists.uuid, permanent=False)
+            else:
+                raise StorageError('A file with the same name already exists in the destination folder.')
+
+        data = FileMoveRequestData(uuid=uuid, to=to_uuid)
+
+        with self._drive_write_lock:
+            self._api.v3.file.move(data)
+
+    def rename_file(self, uuid: ItemId, new_name: str, *, overwrite_existing: bool = False) -> None:
+        uuid = self._normalize_uuid(uuid)
+
+        file_info = self.file_info(uuid)
+        exists = self.file_exists(new_name, file_info.parent)
+
+        if exists:
+            if exists.uuid == uuid:
+                return
+            if overwrite_existing:
+                self.delete_file(exists.uuid, permanent=False)
+            else:
+                raise StorageError('A file with the same name already exists in this folder.')
+
+        key = self._ensure_master_key()
+
+        metadata = FileMetadata(
+            **file_info.metadata.model_dump(exclude={'name'}),
+            name=new_name,
+        )
+
+        name_hashed = hash_name(new_name, self._context.auth_version)
+        name_enc = encrypt_metadata(new_name, metadata.key)
+        metadata_enc = encrypt_metadata_model(metadata, key)
+
+        data = FileRenameRequestData(uuid=uuid, metadata=metadata_enc, name=name_enc, name_hashed=name_hashed)
+
+        with self._drive_write_lock:
+            self._api.v3.file.rename(data)
 
     def public_link_status(self, uuid: ItemId, link_type: StorageItemType | str | None = None) -> PublicLinkStatus:
         data = StorageItemUUIDRequestData(uuid=uuid)
@@ -663,7 +731,7 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
             else:
                 await self._api.v3.dir.trash(data)
 
-    async def move_folder(self, uuid: ItemId, to_uuid: ItemId) -> None:
+    async def move_folder(self, uuid: ItemId, to_uuid: ItemId, overwrite_existing: bool = False) -> None:
         """Move a folder to another folder"""
 
         uuid = self._normalize_uuid(uuid)
@@ -671,6 +739,9 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
 
         if uuid == to_uuid:
             raise StorageError('The folder cannot be moved into itself.')
+
+        if overwrite_existing:
+            raise NotImplementedError('overwrite_existing option is not implemented for move_folder')
 
         data = FolderMoveRequestData(uuid=uuid, to=to_uuid)
 
@@ -733,6 +804,69 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
         )
 
         return FileInfo(**file_info.model_dump(exclude={'metadata'}), metadata=metadata)
+
+    async def delete_file(self, uuid: ItemId, permanent: bool = False) -> None:
+        """Move a file to trash or delete permanently"""
+
+        data = StorageItemUUIDRequestData(uuid=uuid)
+
+        async with self._drive_write_lock:
+            if permanent:
+                await self._api.v3.file.delete(data)
+            else:
+                await self._api.v3.file.trash(data)
+
+    async def move_file(self, uuid: ItemId, to_uuid: ItemId, *, overwrite_existing: bool = False) -> None:
+        """Move a file to another folder"""
+
+        uuid = self._normalize_uuid(uuid)
+        to_uuid = self._normalize_uuid(to_uuid)
+
+        file_info = await self.file_info(uuid)
+        exists = await self.file_exists(file_info.metadata.name, to_uuid)
+
+        if exists:
+            if overwrite_existing:
+                await self.delete_file(exists.uuid, permanent=False)
+            else:
+                raise StorageError('A file with the same name already exists in the destination folder.')
+
+        data = FileMoveRequestData(uuid=uuid, to=to_uuid)
+
+        async with self._drive_write_lock:
+            await self._api.v3.file.move(data)
+
+    async def rename_file(self, uuid: ItemId, new_name: str, *, overwrite_existing: bool = False) -> None:
+        """Rename a file"""
+
+        uuid = self._normalize_uuid(uuid)
+
+        file_info = await self.file_info(uuid)
+        exists = await self.file_exists(new_name, file_info.parent)
+
+        if exists:
+            if exists.uuid == uuid:
+                return
+            if overwrite_existing:
+                await self.delete_file(exists.uuid, permanent=False)
+            else:
+                raise StorageError('A file with the same name already exists in this folder.')
+
+        key = await self._ensure_master_key()
+
+        metadata = FileMetadata(
+            **file_info.metadata.model_dump(exclude={'name'}),
+            name=new_name,
+        )
+
+        name_hashed = await self._runner.run_sync(hash_name, new_name, self._context.auth_version)
+        name_enc = await self._runner.run_sync(encrypt_metadata, new_name, metadata.key)
+        metadata_enc = await self._runner.run_sync(encrypt_metadata_model, metadata, key)
+
+        data = FileRenameRequestData(uuid=uuid, metadata=metadata_enc, name=name_enc, name_hashed=name_hashed)
+
+        async with self._drive_write_lock:
+            await self._api.v3.file.rename(data)
 
     async def public_link_status(
         self,

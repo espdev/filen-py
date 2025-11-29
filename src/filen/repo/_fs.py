@@ -41,10 +41,10 @@ class FSMixIn:
         return names
 
     @staticmethod
-    def _check_folder_path(path: str, status: StorageItemExists):
+    def _check_path(path: str, status: StorageItemExists, raise_for_file: bool = False):
         if not status:
             raise StorageError('%r does not exist.', path)
-        elif status.type != StorageItemType.folder:
+        elif raise_for_file and status.type != StorageItemType.folder:
             raise StorageError('%r is not a directory.', path)
 
     @staticmethod
@@ -150,7 +150,7 @@ class FS(RepoBase, FSMixIn):
         self,
         item_type: StorageItemType | StorageItemTypeLiteral | None = None,
     ) -> list[FolderDetail | FileDetail]:
-        """Return the list of items in trash"""
+        """Return the list of folders and/or files in trash"""
 
         folder_content = self._storage.folder_content('trash')
         return self._collect_items_in_trash(folder_content, item_type)
@@ -173,24 +173,52 @@ class FS(RepoBase, FSMixIn):
 
         return parent_uuid
 
-    def rmdir(self, path: str, permanent: bool = False) -> None:
-        """Delete a directory"""
+    def mv(
+        self,
+        src_path: str,
+        dst_path: str,
+        *,
+        ensure_folder: bool = True,
+        overwrite_existing: bool = False,
+    ) -> None:
+        """Move a file or folder to the destination folder"""
+
+        src_status = self.exists(src_path)
+        dst_status = self.exists(dst_path)
+
+        if not dst_status.exists and ensure_folder:
+            uuid = self.mkdir(dst_path)
+            dst_status = StorageItemExists.folder_exists(uuid)
+
+        self._check_path(src_path, src_status)
+        self._check_path(dst_path, dst_status, raise_for_file=True)
+
+        if src_status.type == StorageItemType.file:
+            self._storage.move_file(src_status.uuid, dst_status.uuid, overwrite_existing=overwrite_existing)
+        else:
+            self._storage.move_folder(src_status.uuid, dst_status.uuid, overwrite_existing=overwrite_existing)
+
+    def rm(self, path: str, permanent: bool = False) -> None:
+        """Delete a file or folder"""
 
         exists = self.exists(path)
+        self._check_path(path, exists)
 
-        self._check_folder_path(path, exists)
-        self._storage.delete_folder(exists.uuid, permanent=permanent)
+        if exists.type == StorageItemType.file:
+            self._storage.delete_file(exists.uuid, permanent=permanent)
+        else:
+            self._storage.delete_folder(exists.uuid, permanent=permanent)
 
-    def mvdir(self, from_path: str, to_path: str) -> None:
-        """Move a folder to another folder"""
+    def rename(self, path: str, new_name: str, *, overwrite_existing_file: bool = False) -> None:
+        """Rename a file or folder"""
 
-        from_status = self.exists(from_path)
-        to_status = self.exists(to_path)
+        exists = self.exists(path)
+        self._check_path(path, exists)
 
-        self._check_folder_path(from_path, from_status)
-        self._check_folder_path(to_path, to_status)
-
-        self._storage.move_folder(from_status.uuid, to_status.uuid)
+        if exists.type == StorageItemType.file:
+            self._storage.rename_file(exists.uuid, new_name, overwrite_existing=overwrite_existing_file)
+        else:
+            self._storage.rename_folder(exists.uuid, new_name)
 
     def link(self, path: str, detail: bool = False) -> str | PublicLinkStatus | None:
         """Get a public link status for the file/folder"""
@@ -338,7 +366,7 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
         self,
         item_type: StorageItemType | StorageItemTypeLiteral | None = None,
     ) -> list[FolderDetail | FileDetail]:
-        """Return the list of items in trash"""
+        """Return the list of folders and/or files in trash"""
 
         folder_content = await self._storage.folder_content('trash')
         return self._collect_items_in_trash(folder_content, item_type)
@@ -358,28 +386,52 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
 
         return parent_uuid
 
-    async def rmdir(self, path: str, permanent: bool = False) -> None:
-        """Delete a directory"""
+    async def mv(
+        self,
+        src_path: str,
+        dst_path: str,
+        *,
+        ensure_folder: bool = True,
+        overwrite_existing: bool = False,
+    ) -> None:
+        """Move a file or folder to the destination folder"""
+
+        src_status = await self.exists(src_path)
+        dst_status = await self.exists(dst_path)
+
+        if not dst_status.exists and ensure_folder:
+            uuid = await self.mkdir(dst_path)
+            dst_status = StorageItemExists.folder_exists(uuid)
+
+        self._check_path(src_path, src_status)
+        self._check_path(dst_path, dst_status, raise_for_file=True)
+
+        if src_status.type == StorageItemType.file:
+            await self._storage.move_file(src_status.uuid, dst_status.uuid, overwrite_existing=overwrite_existing)
+        else:
+            await self._storage.move_folder(src_status.uuid, dst_status.uuid, overwrite_existing=overwrite_existing)
+
+    async def rm(self, path: str, permanent: bool = False) -> None:
+        """Delete a file or folder"""
 
         exists = await self.exists(path)
+        self._check_path(path, exists)
 
-        if not exists:
-            raise StorageError('%r does not exist.', path)
-        elif exists.type != StorageItemType.folder:
-            raise StorageError('%r is not a directory.', path)
+        if exists.type == StorageItemType.file:
+            await self._storage.delete_file(exists.uuid, permanent=permanent)
+        else:
+            await self._storage.delete_folder(exists.uuid, permanent=permanent)
 
-        await self._storage.delete_folder(exists.uuid, permanent=permanent)
+    async def rename(self, path: str, new_name: str, *, overwrite_existing_file: bool = False) -> None:
+        """Rename a file or folder"""
 
-    async def mvdir(self, from_path: str, to_path: str) -> None:
-        """Move a folder to another folder"""
+        exists = await self.exists(path)
+        self._check_path(path, exists)
 
-        from_status = await self.exists(from_path)
-        to_status = await self.exists(to_path)
-
-        self._check_folder_path(from_path, from_status)
-        self._check_folder_path(to_path, to_status)
-
-        await self._storage.move_folder(from_status.uuid, to_status.uuid)
+        if exists.type == StorageItemType.file:
+            await self._storage.rename_file(exists.uuid, new_name, overwrite_existing=overwrite_existing_file)
+        else:
+            await self._storage.rename_folder(exists.uuid, new_name)
 
     async def link(self, path: str, detail: bool = False) -> str | PublicLinkStatus | None:
         """Get a public link status for the file/folder"""

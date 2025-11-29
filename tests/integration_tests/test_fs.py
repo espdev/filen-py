@@ -27,7 +27,7 @@ def cloud_test_folder(filen_client):
     try:
         yield CLOUD_TEST_FOLDER
     finally:
-        filen_client.fs.rmdir(CLOUD_TEST_FOLDER, permanent=True)
+        filen_client.fs.rm(CLOUD_TEST_FOLDER, permanent=True)
 
 
 @pytest.fixture
@@ -58,7 +58,7 @@ async def test_async_folder_exists(cloud_test_folder, path, exists, item_type, a
     assert folder_exists.type == item_type
 
 
-def test_mkdir_rmdir_permanent(cloud_test_folder, filen_client):
+def test_mkdir_rm_permanent(cloud_test_folder, filen_client):
     name1 = secrets.token_urlsafe(8)
     name2 = secrets.token_urlsafe(8)
     path1 = f'{cloud_test_folder}/{name1}/{name2}'
@@ -66,11 +66,11 @@ def test_mkdir_rmdir_permanent(cloud_test_folder, filen_client):
     folder_uuid = filen_client.fs.mkdir(path1)
     assert filen_client.fs.exists(path1).uuid == folder_uuid
 
-    filen_client.fs.rmdir(f'{cloud_test_folder}/{name1}', permanent=True)
+    filen_client.fs.rm(f'{cloud_test_folder}/{name1}', permanent=True)
     assert filen_client.fs.exists(path1).exists is False
 
 
-async def test_async_mkdir_rmdir_permanent(cloud_test_folder, async_filen_client):
+async def test_async_mkdir_rm_permanent(cloud_test_folder, async_filen_client):
     name1 = secrets.token_urlsafe(8)
     name2 = secrets.token_urlsafe(8)
     path = f'{cloud_test_folder}/{name1}/{name2}'
@@ -78,27 +78,27 @@ async def test_async_mkdir_rmdir_permanent(cloud_test_folder, async_filen_client
     folder_uuid = await async_filen_client.fs.mkdir(path)
     assert (await async_filen_client.fs.exists(path)).uuid == folder_uuid
 
-    await async_filen_client.fs.rmdir(f'{cloud_test_folder}/{name1}', permanent=True)
+    await async_filen_client.fs.rm(f'{cloud_test_folder}/{name1}', permanent=True)
     assert (await async_filen_client.fs.exists(path)).exists is False
 
 
-def test_mvdir(paths_for_mvdir, filen_client):
+def test_mv_folder(paths_for_mvdir, filen_client):
     path1, path2, path3, path4 = paths_for_mvdir
 
     filen_client.fs.mkdir(path2)
     filen_client.fs.mkdir(path3)
-    filen_client.fs.mvdir(path1, path3)
+    filen_client.fs.mv(path1, path3)
 
     assert filen_client.fs.exists(path2).exists is False
     assert filen_client.fs.exists(path4).exists is True
 
 
-async def test_async_mvdir(paths_for_mvdir, async_filen_client):
+async def test_async_mv_folder(paths_for_mvdir, async_filen_client):
     path1, path2, path3, path4 = paths_for_mvdir
 
     await async_filen_client.fs.mkdir(path2)
     await async_filen_client.fs.mkdir(path3)
-    await async_filen_client.fs.mvdir(path1, path3)
+    await async_filen_client.fs.mv(path1, path3)
 
     assert (await async_filen_client.fs.exists(path2)).exists is False
     assert (await async_filen_client.fs.exists(path4)).exists is True
