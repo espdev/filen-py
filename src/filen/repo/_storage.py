@@ -1,4 +1,5 @@
 from typing import Final, Literal
+from mimetypes import guess_type
 import os
 from urllib.parse import quote
 from uuid import UUID, uuid4
@@ -408,8 +409,9 @@ class Storage(RepoBase, StorageMixIn):
         key = self._ensure_master_key()
 
         metadata = FileMetadata(
-            **file_info.metadata.model_dump(exclude={'name'}),
+            **file_info.metadata.model_dump(exclude={'name', 'mime'}),
             name=new_name,
+            mime=guess_type(new_name)[0] or file_info.metadata.mime,
         )
 
         name_hashed = hash_name(new_name, self._context.auth_version)
@@ -855,8 +857,9 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
         key = await self._ensure_master_key()
 
         metadata = FileMetadata(
-            **file_info.metadata.model_dump(exclude={'name'}),
+            **file_info.metadata.model_dump(exclude={'name', 'mime'}),
             name=new_name,
+            mime=guess_type(new_name)[0] or file_info.metadata.mime,
         )
 
         name_hashed = await self._runner.run_sync(hash_name, new_name, self._context.auth_version)
