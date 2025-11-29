@@ -1,4 +1,5 @@
-from .._base import APIBase, APIEndpoint, AsyncAPIBase
+from .._base import APIBase, AsyncAPIBase
+from ._base import APIv3Endpoint
 from .models.base import ResponseModel, StorageItemExistsRequestData, StorageItemUUIDRequestData
 from .models.dir import (
     FolderContentRequestData,
@@ -15,7 +16,7 @@ from .models.dir import (
 )
 
 
-class DirEndpoint(APIEndpoint):
+class DirEndpoint(APIv3Endpoint):
     info = '/dir'
     content = '/dir/content'
     download = '/dir/download'
@@ -31,8 +32,6 @@ class DirEndpoint(APIEndpoint):
 
 
 class DirAPI(APIBase):
-    """Dir API"""
-
     def info(self, data: StorageItemUUIDRequestData) -> FolderInfoResponseData:
         return self._post(DirEndpoint.info, data, FolderInfoResponseData)
 
@@ -71,8 +70,6 @@ class DirAPI(APIBase):
 
 
 class AsyncDirAPI(AsyncAPIBase):
-    """Async Dir API"""
-
     async def info(self, data: StorageItemUUIDRequestData) -> FolderInfoResponseData:
         return await self._post(DirEndpoint.info, data, FolderInfoResponseData)
 

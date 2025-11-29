@@ -1,4 +1,5 @@
-from .._base import APIBase, APIEndpoint, AsyncAPIBase
+from .._base import APIBase, AsyncAPIBase
+from ._base import APIv3Endpoint
 from .models.user import (
     LockRequestData,
     LockStatusResponseData,
@@ -11,7 +12,7 @@ from .models.user import (
 )
 
 
-class UserEndpoint(APIEndpoint):
+class UserEndpoint(APIv3Endpoint):
     user_info = '/user/info'
     user_settings = '/user/settings'
     base_folder = '/user/baseFolder'

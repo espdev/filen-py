@@ -1,4 +1,5 @@
-from .._base import APIBase, APIEndpoint, AsyncAPIBase
+from .._base import APIBase, AsyncAPIBase
+from ._base import APIv3Endpoint
 from .models.auth import (
     AuthInfoRequestData,
     AuthInfoResponseData,
@@ -7,7 +8,7 @@ from .models.auth import (
 )
 
 
-class AuthEndpoint(APIEndpoint):
+class AuthEndpoint(APIv3Endpoint):
     auth_info = '/auth/info'
     login = '/login'
 

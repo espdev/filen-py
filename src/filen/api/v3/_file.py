@@ -1,4 +1,5 @@
-from .._base import APIBase, APIEndpoint, AsyncAPIBase
+from .._base import APIBase, AsyncAPIBase
+from ._base import APIv3Endpoint
 from .models.base import ResponseModel, StorageItemExistsRequestData, StorageItemUUIDRequestData
 from .models.file import (
     FileExistsResponseData,
@@ -8,7 +9,7 @@ from .models.file import (
 )
 
 
-class FileEndpoint(APIEndpoint):
+class FileEndpoint(APIv3Endpoint):
     info = '/file'
     exists = '/file/exists'
     link_status = '/file/link/status'
@@ -16,8 +17,6 @@ class FileEndpoint(APIEndpoint):
 
 
 class FileAPI(APIBase):
-    """File API"""
-
     def info(self, data: StorageItemUUIDRequestData) -> FileInfoResponseData:
         return self._post(FileEndpoint.info, data, FileInfoResponseData)
 
@@ -32,8 +31,6 @@ class FileAPI(APIBase):
 
 
 class AsyncFileAPI(AsyncAPIBase):
-    """Async File API"""
-
     async def info(self, data: StorageItemUUIDRequestData) -> FileInfoResponseData:
         return await self._post(FileEndpoint.info, data, FileInfoResponseData)
 

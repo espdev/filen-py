@@ -1,6 +1,6 @@
-from typing import Any, Final, Self, Type
+from typing import Any, Self, Type
 from abc import ABC, abstractmethod
-from enum import StrEnum
+from enum import Enum, nonmember
 
 from httpx import AsyncClient, Client, Response
 from pydantic import BaseModel
@@ -10,11 +10,17 @@ from filen._helpers import FactoryDescriptor
 from filen._logging import debug_log_api_request, debug_log_api_response
 from filen.errors import APIKeyRequiredError, RequestErrorHandler
 
-API_VERSION_PATH: Final = '/v3'
 
-
-class APIEndpoint(StrEnum):
+class APIEndpoint(Enum):
     """Base enumeration class for all API endpoint enumerations"""
+
+    api_path = nonmember('')
+
+    def __init__(self, path: str) -> None:
+        self._value_ = f'{self.api_path}{path}'
+
+    def __str__(self) -> str:
+        return str(self.value)
 
 
 class RequestModelBase(BaseModel):
@@ -43,7 +49,7 @@ class APIGenericBase[TClient: Client | AsyncClient]:
 
     def _get_api_url(self, endpoint: str) -> str:
         base_url = self._context.get_gateway_url().rstrip('/')
-        return f'{base_url}{API_VERSION_PATH}{endpoint}'
+        return f'{base_url}{endpoint}'
 
     def _ensure_api_key(
         self,
