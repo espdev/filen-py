@@ -20,6 +20,8 @@ from .models import (
 
 TRASH_PATH: Final = '/<trash>'
 
+type Tree = list[tuple[str, list[str | FolderDetail], list[str | FileDetail]]]
+
 
 class FSMixIn:
     _storage: Storage | AsyncStorage
@@ -86,6 +88,50 @@ class FSMixIn:
                 files = [FileDetail.from_info(TRASH_PATH, f) for f in folder_content.files]
                 return folders + files
 
+    @staticmethod
+    def _make_folder_tree(path: str, uuid: UUID, content: FolderContent, detail: bool) -> Tree:
+        """Make a folder tree from flattened downloaded folder content in os.walk format"""
+
+        tree_map = {uuid: [[], []]}
+        path_map = {uuid: path}
+
+        for folder in content.folders:
+            if folder.uuid == uuid:
+                # root folder, do not include to tree map
+                continue
+
+            folder_path = f'{path_map[folder.parent]}/{folder.name}'
+            folder_info = FolderDetail.from_info(folder_path, folder) if detail else folder.name
+
+            tree_map[folder.parent][0].append(folder_info)
+
+            if folder.uuid not in tree_map:
+                path_map[folder.uuid] = folder_path
+                tree_map[folder.uuid] = [[], []]
+
+        for file in content.files:
+            if detail:
+                file_path = f'{path_map[file.parent]}/{file.metadata.name}'
+                file_info = FileDetail.from_info(file_path, file)
+            else:
+                file_info = file.metadata.name
+            tree_map[file.parent][1].append(file_info)
+
+        tree: Tree = []
+
+        for parent, items_info in tree_map.items():
+            if detail:
+                items_info[0].sort(key=lambda info: info.name)
+                items_info[1].sort(key=lambda info: info.name)
+            else:
+                items_info[0].sort()
+                items_info[1].sort()
+
+            tree.append((path_map[parent], items_info[0], items_info[1]))
+
+        tree.sort(key=lambda item: item[0])
+        return tree
+
 
 class FS(RepoBase, FSMixIn):
     """High-level filesystem-like repository to manipulate files and folders"""
@@ -145,6 +191,16 @@ class FS(RepoBase, FSMixIn):
         else:
             folder_content = self._storage.folder_content(item_exists.uuid)
             return self._collect_folder_content(path, folder_content, detail=detail)
+
+    def tree(self, path: str, detail: bool = False) -> Tree:
+        """List folders and files at path recursive in os.walk format"""
+
+        exists = self.exists(path)
+        self._check_path(path, exists, raise_for_file=True)
+        folder_content = self._storage.folder_download(exists.uuid)
+
+        # make folder tree in os.walk format
+        return self._make_folder_tree(path, exists.uuid, folder_content, detail)
 
     def trash(
         self,
@@ -366,6 +422,16 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
         else:
             folder_content = await self._storage.folder_content(item_exists.uuid)
             return self._collect_folder_content(path, folder_content, detail=detail)
+
+    async def tree(self, path: str, detail: bool = False) -> Tree:
+        """List folders and files at path recursive in os.walk format"""
+
+        exists = await self.exists(path)
+        self._check_path(path, exists, raise_for_file=True)
+        folder_content = await self._storage.folder_download(exists.uuid)
+
+        # make folder tree in os.walk format
+        return self._make_folder_tree(path, exists.uuid, folder_content, detail)
 
     async def trash(
         self,
