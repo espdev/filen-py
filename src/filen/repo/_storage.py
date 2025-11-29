@@ -30,8 +30,8 @@ from filen.crypto import (
 )
 from filen.errors import StorageError
 
-from ._base import AsyncRepoBase, LockResource, RepoBase, repo
-from ._lock import AsyncLock, Lock
+from ._base import AsyncRepoBase, RepoBase, repo
+from ._lock import AsyncLock, Lock, LockResource
 from .models import (
     CreateFolderInfo,
     FileInfo,

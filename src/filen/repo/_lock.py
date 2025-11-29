@@ -1,5 +1,6 @@
 from typing import ClassVar, Final, Literal, TypedDict
 import asyncio
+from enum import StrEnum
 import threading
 import time
 from uuid import NAMESPACE_OID, uuid5
@@ -7,11 +8,17 @@ from uuid import NAMESPACE_OID, uuid5
 from filen._logging import logger
 from filen.api.v3.models.user import LockRequestData
 
-from ._base import AsyncRepoBase, LockResource, RepoBase
+from ._base import AsyncRepoBase, RepoBase
 
 MAX_TRIES: Final = 100_000
 TRY_INTERVAL: Final = 1.0  # sec
 REFRESH_INTERVAL: Final = 5.0  # sec
+
+
+class LockResource(StrEnum):
+    """All locked resources"""
+
+    drive_write = 'drive-write'
 
 
 class LockSharedState(TypedDict):
