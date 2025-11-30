@@ -1,4 +1,4 @@
-from typing import Annotated, Literal, Self
+from typing import Annotated, Literal, NamedTuple, Self
 from datetime import datetime
 from enum import StrEnum, auto
 from uuid import UUID
@@ -249,6 +249,12 @@ class FolderDetail(BaseModel):
             trash=folder_info.trash,
             created=datetime.fromtimestamp(folder_info.timestamp),
         )
+
+
+class FolderTreeItem(NamedTuple):
+    path: str
+    folders: list[str | FolderDetail]
+    files: list[str | FileDetail]
 
 
 class PublicLinkStatus(BaseModel):

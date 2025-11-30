@@ -11,6 +11,7 @@ from .models import (
     FileDetail,
     FolderContent,
     FolderDetail,
+    FolderTreeItem,
     PublicLinkExpiration,
     PublicLinkStatus,
     StorageItemExists,
@@ -20,7 +21,7 @@ from .models import (
 
 TRASH_PATH: Final = '/<trash>'
 
-type Tree = list[tuple[str, list[str | FolderDetail], list[str | FileDetail]]]
+type Tree = list[FolderTreeItem]
 
 
 class FSMixIn:
@@ -127,7 +128,7 @@ class FSMixIn:
                 folders.sort()
                 files.sort()
 
-            tree.append((path_map[parent], folders, files))
+            tree.append(FolderTreeItem(path_map[parent], folders, files))
 
         tree.sort(key=lambda item: item[0])
         return tree
