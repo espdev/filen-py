@@ -130,7 +130,7 @@ class FSMixIn:
 
             tree.append(FolderTreeItem(path_map[parent], folders, files))
 
-        tree.sort(key=lambda item: item[0])
+        tree.sort(key=lambda item: item.path)
         return tree
 
 
