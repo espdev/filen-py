@@ -89,11 +89,13 @@ class ResponseModel(ResponseModelBase):
 class ResponseData[TData: ValidationAliasedModel](ResponseModel):
     """Genedic model class for Filen API responses with additional data"""
 
-    data: TData | list[TData] | None = None
+    data: TData | None = None
 
-    def data_as[T](self, model: Type[BaseModel], **extra_fields) -> T:
+    def data_as[T: BaseModel](self, model: Type[T], **extra_fields) -> T:
+        if self.data is None:
+            return model()
         if not extra_fields:
-            return model.model_validate(self.data)
+            return model.model_validate(self.data.model_dump())
         data = {
             **self.data.model_dump(),
             **extra_fields,
