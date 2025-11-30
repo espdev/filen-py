@@ -146,6 +146,20 @@ class FolderRenameRequestData(RequestData):
 class FolderPublicLinkStatusResponseData(ResponseData[PublicLinkStatus]): ...
 
 
+class FolderPublicLinkSizeRequestData(RequestData):
+    uuid: UUID
+    link_uuid: Annotated[UUID, Field(serialization_alias='linkUUID')]
+
+
+class FolderPublicLinkSize(ValidationAliasedModel):
+    size: int
+    folders: int
+    files: int
+
+
+class FolderPublicLinkSizeResponseData(ResponseData[FolderPublicLinkSize]): ...
+
+
 class FolderPublicLinkAddRequestData(RequestData):
     uuid: UUID
     parent: UUID | Literal['base']

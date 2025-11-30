@@ -265,6 +265,7 @@ class PublicLinkStatus(BaseModel):
     type: StorageItemType | None = None
     uuid: UUID | None = None
     item_uuid: UUID | None = None
+    size: int | None = None
     key: str | None = None
     link: str | None = None
     expiration: int | None = None
@@ -278,3 +279,9 @@ class PublicLinkStatus(BaseModel):
 
     def __bool__(self) -> bool:
         return self.exists
+
+
+class FolderPublicLinkSize(BaseModel):
+    size: int
+    folders: int
+    files: int

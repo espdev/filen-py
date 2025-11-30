@@ -14,6 +14,7 @@ from filen.api.v3.models.dir import (
     FolderMoveRequestData,
     FolderPublicLinkAddRequestData,
     FolderPublicLinkEditRequestData,
+    FolderPublicLinkSizeRequestData,
     FolderRenameRequestData,
 )
 from filen.api.v3.models.file import FileMoveRequestData, FilePublicLinkEditRequestData, FileRenameRequestData
@@ -39,6 +40,7 @@ from .models import (
     FolderContent,
     FolderInfo,
     FolderMetadata,
+    FolderPublicLinkSize,
     PublicLinkStatus,
     StorageItemExists,
     StorageItemPresent,
@@ -450,17 +452,25 @@ class Storage(RepoBase, StorageMixIn):
 
         if link_type == StorageItemType.file:
             file_info = self.file_info(uuid)
+            size = file_info.metadata.size
             key = file_info.metadata.key
             link_base_url = FILEN_PUBLIC_FILE_LINK_BASE_URL
         else:
             master_keys = self._ensure_master_keys()
+            size = self.folder_public_link_size(uuid, response.data.uuid).size
             key = decrypt_metadata(response.data.key, master_keys)
             link_base_url = FILEN_PUBLIC_FOLDER_LINK_BASE_URL
 
         link_path = quote(f'{response.data.uuid}#{key}')
         link = f'{link_base_url}/{link_path}'
 
-        return response.data_as(PublicLinkStatus, item_uuid=uuid, type=link_type, key=key, link=link)
+        return response.data_as(PublicLinkStatus, item_uuid=uuid, type=link_type, size=size, key=key, link=link)
+
+    def folder_public_link_size(self, folder_uuid: ItemId, link_uuid: ItemId) -> FolderPublicLinkSize:
+        """Return a folder public link size"""
+
+        data = FolderPublicLinkSizeRequestData(uuid=folder_uuid, link_uuid=link_uuid)
+        return self._api.v3.dir.link_size(data).data_as(FolderPublicLinkSize)
 
     def edit_file_public_link(
         self,
@@ -908,17 +918,25 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
 
         if link_type == StorageItemType.file:
             file_info = await self.file_info(uuid)
+            size = file_info.metadata.size
             key = file_info.metadata.key
             link_base_url = FILEN_PUBLIC_FILE_LINK_BASE_URL
         else:
             master_keys = await self._ensure_master_keys()
+            size = (await self.folder_public_link_size(uuid, response.data.uuid)).size
             key = await self._runner.run_sync(decrypt_metadata, response.data.key, master_keys)
             link_base_url = FILEN_PUBLIC_FOLDER_LINK_BASE_URL
 
         link_path = quote(f'{response.data.uuid}#{key}')
         link = f'{link_base_url}/{link_path}'
 
-        return response.data_as(PublicLinkStatus, item_uuid=uuid, type=link_type, key=key, link=link)
+        return response.data_as(PublicLinkStatus, item_uuid=uuid, type=link_type, size=size, key=key, link=link)
+
+    async def folder_public_link_size(self, folder_uuid: ItemId, link_uuid: ItemId) -> FolderPublicLinkSize:
+        """Return a folder public link size"""
+
+        data = FolderPublicLinkSizeRequestData(uuid=folder_uuid, link_uuid=link_uuid)
+        return (await self._api.v3.dir.link_size(data)).data_as(FolderPublicLinkSize)
 
     async def edit_file_public_link(
         self,

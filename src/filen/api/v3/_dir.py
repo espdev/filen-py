@@ -13,6 +13,8 @@ from .models.dir import (
     FolderPresentResponseData,
     FolderPublicLinkAddRequestData,
     FolderPublicLinkEditRequestData,
+    FolderPublicLinkSizeRequestData,
+    FolderPublicLinkSizeResponseData,
     FolderPublicLinkStatusResponseData,
     FolderRenameRequestData,
 )
@@ -31,6 +33,7 @@ class DirEndpoint(APIv3Endpoint):
     rename = '/dir/rename'
     empty_trash = '/trash/empty'
     link_status = '/dir/link/status'
+    link_size = '/dir/size/link'
     link_add = '/dir/link/add'
     link_edit = '/dir/link/edit'
     link_remove = '/dir/link/remove'
@@ -72,6 +75,9 @@ class DirAPI(APIBase):
 
     def link_status(self, data: StorageItemUUIDRequestData) -> FolderPublicLinkStatusResponseData:
         return self._post(DirEndpoint.link_status, data, FolderPublicLinkStatusResponseData)
+
+    def link_size(self, data: FolderPublicLinkSizeRequestData) -> FolderPublicLinkSizeResponseData:
+        return self._post(DirEndpoint.link_size, data, FolderPublicLinkSizeResponseData)
 
     def link_add(self, data: FolderPublicLinkAddRequestData) -> ResponseModel:
         return self._post(DirEndpoint.link_add, data, ResponseModel)
@@ -119,6 +125,9 @@ class AsyncDirAPI(AsyncAPIBase):
 
     async def link_status(self, data: StorageItemUUIDRequestData) -> FolderPublicLinkStatusResponseData:
         return await self._post(DirEndpoint.link_status, data, FolderPublicLinkStatusResponseData)
+
+    async def link_size(self, data: FolderPublicLinkSizeRequestData) -> FolderPublicLinkSizeResponseData:
+        return await self._post(DirEndpoint.link_size, data, FolderPublicLinkSizeResponseData)
 
     async def link_add(self, data: FolderPublicLinkAddRequestData) -> ResponseModel:
         return await self._post(DirEndpoint.link_add, data, ResponseModel)
