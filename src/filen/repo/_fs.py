@@ -20,7 +20,7 @@ from .models import (
     StorageItemTypeLiteral,
 )
 
-TRASH_PATH: Final = '/<trash>'
+TRASH_PATH: Final = '<trash>'
 
 type Tree = list[FolderTreeItem]
 
@@ -170,7 +170,7 @@ class FS(RepoBase, FSMixIn):
     def ls(self, path: str, detail: bool = False) -> list[str | FileDetail | FolderDetail]:
         """List files and folders at path"""
 
-        if path in (TRASH_PATH, TRASH_PATH.strip('/')):
+        if path.strip('/') == TRASH_PATH:
             return self.trash()
 
         path = self._normalize_path(path)
@@ -408,7 +408,7 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
     async def ls(self, path: str, detail: bool = False) -> list[str | FileDetail | FolderDetail]:
         """List files and folders at path"""
 
-        if path in (TRASH_PATH, TRASH_PATH.strip('/')):
+        if path.strip('/') == TRASH_PATH:
             return await self.trash()
 
         path = self._normalize_path(path)
