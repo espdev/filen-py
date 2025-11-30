@@ -426,20 +426,8 @@ class Storage(RepoBase, StorageMixIn):
     def empty_trash(self) -> None:
         """Empty the trash"""
 
-        trash_content = self.folder_content(FolderContentType.trash)
-
-        if not trash_content.files and not trash_content.folders:
-            return
-
         with self._drive_write_lock:
-            with self._runner.task_group() as tg:
-                for file in trash_content.files:
-                    data = StorageItemUUIDRequestData(uuid=file.uuid)
-                    tg.add_task(None, self._api.v3.file.delete, data)
-
-                for folder in trash_content.folders:
-                    data = StorageItemUUIDRequestData(uuid=folder.uuid)
-                    tg.add_task(None, self._api.v3.dir.delete, data)
+            self._api.v3.dir.empty_trash()
 
     def public_link_status(self, uuid: ItemId, link_type: StorageItemType | str | None = None) -> PublicLinkStatus:
         data = StorageItemUUIDRequestData(uuid=uuid)
@@ -892,20 +880,8 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
     async def empty_trash(self) -> None:
         """Empty the trash"""
 
-        trash_content = await self.folder_content(FolderContentType.trash)
-
-        if not trash_content.files and not trash_content.folders:
-            return
-
         async with self._drive_write_lock:
-            async with self._runner.task_group() as tg:
-                for file in trash_content.files:
-                    data = StorageItemUUIDRequestData(uuid=file.uuid)
-                    tg.add_task(None, self._api.v3.file.delete, data)
-
-                for folder in trash_content.folders:
-                    data = StorageItemUUIDRequestData(uuid=folder.uuid)
-                    tg.add_task(None, self._api.v3.dir.delete, data)
+            await self._api.v3.dir.empty_trash()
 
     async def public_link_status(
         self,

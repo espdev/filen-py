@@ -29,6 +29,7 @@ class DirEndpoint(APIv3Endpoint):
     delete = '/dir/delete/permanent'
     move = '/dir/move'
     rename = '/dir/rename'
+    empty_trash = '/trash/empty'
     link_status = '/dir/link/status'
     link_add = '/dir/link/add'
     link_edit = '/dir/link/edit'
@@ -65,6 +66,9 @@ class DirAPI(APIBase):
 
     def rename(self, data: FolderRenameRequestData) -> ResponseModel:
         return self._post(DirEndpoint.rename, data, ResponseModel)
+
+    def empty_trash(self) -> ResponseModel:
+        return self._post(DirEndpoint.empty_trash, None, ResponseModel)
 
     def link_status(self, data: StorageItemUUIDRequestData) -> FolderPublicLinkStatusResponseData:
         return self._post(DirEndpoint.link_status, data, FolderPublicLinkStatusResponseData)
@@ -109,6 +113,9 @@ class AsyncDirAPI(AsyncAPIBase):
 
     async def rename(self, data: FolderRenameRequestData) -> ResponseModel:
         return await self._post(DirEndpoint.rename, data, ResponseModel)
+
+    async def empty_trash(self) -> ResponseModel:
+        return await self._post(DirEndpoint.empty_trash, None, ResponseModel)
 
     async def link_status(self, data: StorageItemUUIDRequestData) -> FolderPublicLinkStatusResponseData:
         return await self._post(DirEndpoint.link_status, data, FolderPublicLinkStatusResponseData)

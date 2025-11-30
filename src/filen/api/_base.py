@@ -92,7 +92,7 @@ class APIBase(APIGenericBase[Client], APIFactoryMixIn):
     def _post[TResponse: ResponseModelBase](
         self,
         endpoint: APIEndpoint,
-        data: RequestModelBase,
+        data: RequestModelBase | None,
         response_model: Type[TResponse],
         use_api_key: bool = True,
     ) -> TResponse:
@@ -101,7 +101,8 @@ class APIBase(APIGenericBase[Client], APIFactoryMixIn):
 
         with self._request_error_handler:
             debug_log_api_request('post', url, data)
-            r = self._http_client.post(url, headers=headers, json=data.dump_for_payload())
+            data_json = data.dump_for_payload() if data else None
+            r = self._http_client.post(url, headers=headers, json=data_json)
             debug_log_api_response('post', r)
             return response_model.from_response(r)
 
@@ -127,7 +128,7 @@ class AsyncAPIBase(APIGenericBase[AsyncClient], APIFactoryMixIn):
     async def _post[TResponse: ResponseModelBase](
         self,
         endpoint: APIEndpoint,
-        data: RequestModelBase,
+        data: RequestModelBase | None,
         response_model: Type[TResponse],
         *,
         use_api_key: bool = True,
@@ -137,7 +138,8 @@ class AsyncAPIBase(APIGenericBase[AsyncClient], APIFactoryMixIn):
 
         with self._request_error_handler:
             debug_log_api_request('post', url, data)
-            r = await self._http_client.post(url, headers=headers, json=data.dump_for_payload())
+            data_json = data.dump_for_payload() if data else None
+            r = await self._http_client.post(url, headers=headers, json=data_json)
             debug_log_api_response('post', r)
             return response_model.from_response(r)
 
