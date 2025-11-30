@@ -165,7 +165,7 @@ class FS(RepoBase, FSMixIn):
             return folder_exists
         return self._storage.file_exists(parts[-1], parent)
 
-    def list(self, path: str, detail: bool = False) -> list[str | FileDetail | FolderDetail]:
+    def ls(self, path: str, detail: bool = False) -> list[str | FileDetail | FolderDetail]:
         """List files and folders at path"""
 
         if path in (TRASH_PATH, TRASH_PATH.strip('/')):
@@ -396,7 +396,7 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
             return folder_exists
         return await self._storage.file_exists(parts[-1], parent)
 
-    async def list(self, path: str, detail: bool = False) -> list[str | FileDetail | FolderDetail]:
+    async def ls(self, path: str, detail: bool = False) -> list[str | FileDetail | FolderDetail]:
         """List files and folders at path"""
 
         if path in (TRASH_PATH, TRASH_PATH.strip('/')):

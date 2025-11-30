@@ -67,9 +67,7 @@ select = [
     "T201",    # print found
     "T203",    # pprint found
 ]
-ignore = [
-    "A003"     # Python builtin is shadowed by method
-]
+ignore = []
 
 [tool.ruff.lint.flake8-quotes]
 docstring-quotes = "double"
