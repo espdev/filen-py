@@ -20,7 +20,7 @@ from filen.api.v3.models.dir import (
 )
 from filen.api.v3.models.file import FileMoveRequestData, FilePublicLinkEditRequestData, FileRenameRequestData
 from filen.api.v3.models.link import PublicLinkExpiration
-from filen.config import FILEN_PUBLIC_FILE_LINK_BASE_URL, FILEN_PUBLIC_FOLDER_LINK_BASE_URL, STORAGE_ROOT_NAME
+from filen.config import FILEN_FILE_PUBLIC_LINK_BASE_URL, FILEN_FOLDER_PUBLIC_LINK_BASE_URL, STORAGE_ROOT_NAME
 from filen.crypto import (
     decrypt_metadata,
     decrypt_metadata_model,
@@ -459,12 +459,12 @@ class Storage(RepoBase, StorageMixIn):
             file_info = self.file_info(uuid)
             size = file_info.metadata.size
             key = file_info.metadata.key
-            link_base_url = FILEN_PUBLIC_FILE_LINK_BASE_URL
+            link_base_url = FILEN_FILE_PUBLIC_LINK_BASE_URL
         else:
             master_keys = self._ensure_master_keys()
             size = self.folder_public_link_size(uuid, response.data.uuid).size
             key = decrypt_metadata(response.data.key, master_keys)
-            link_base_url = FILEN_PUBLIC_FOLDER_LINK_BASE_URL
+            link_base_url = FILEN_FOLDER_PUBLIC_LINK_BASE_URL
 
         link_path = quote(f'{response.data.uuid}#{key}')
         link = f'{link_base_url}/{link_path}'
@@ -929,12 +929,12 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
             file_info = await self.file_info(uuid)
             size = file_info.metadata.size
             key = file_info.metadata.key
-            link_base_url = FILEN_PUBLIC_FILE_LINK_BASE_URL
+            link_base_url = FILEN_FILE_PUBLIC_LINK_BASE_URL
         else:
             master_keys = await self._ensure_master_keys()
             size = (await self.folder_public_link_size(uuid, response.data.uuid)).size
             key = await self._runner.run_sync(decrypt_metadata, response.data.key, master_keys)
-            link_base_url = FILEN_PUBLIC_FOLDER_LINK_BASE_URL
+            link_base_url = FILEN_FOLDER_PUBLIC_LINK_BASE_URL
 
         link_path = quote(f'{response.data.uuid}#{key}')
         link = f'{link_base_url}/{link_path}'
