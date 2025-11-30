@@ -2,7 +2,7 @@ from typing import Annotated, Final, Literal
 from enum import StrEnum, auto
 from uuid import UUID
 
-from pydantic import BaseModel, BeforeValidator, Field, computed_field
+from pydantic import BaseModel, BeforeValidator, Field, computed_field, field_serializer
 
 from filen.config import FileEncryptionVersion
 
@@ -38,6 +38,26 @@ class FolderInfo(ValidationAliasedModel):
 
 
 class FolderInfoResponseData(ResponseData[FolderInfo]): ...
+
+
+class FolderSizeRequestData(RequestData):
+    uuid: UUID
+    sharer_id: int = 0
+    receiver_id: int = 0
+    trash: bool = False
+
+    @field_serializer('trash', mode='plain')
+    def _serialize_trash(self, trash: bool) -> int:
+        return int(trash)
+
+
+class FolderSize(ValidationAliasedModel):
+    size: int
+    folders: int
+    files: int
+
+
+class FolderSizeResponseData(ResponseData[FolderSize]): ...
 
 
 class FolderContentUploadInfo(ValidationAliasedModel):
@@ -151,13 +171,7 @@ class FolderPublicLinkSizeRequestData(RequestData):
     link_uuid: Annotated[UUID, Field(serialization_alias='linkUUID')]
 
 
-class FolderPublicLinkSize(ValidationAliasedModel):
-    size: int
-    folders: int
-    files: int
-
-
-class FolderPublicLinkSizeResponseData(ResponseData[FolderPublicLinkSize]): ...
+class FolderPublicLinkSizeResponseData(ResponseData[FolderSize]): ...
 
 
 class FolderPublicLinkAddRequestData(RequestData):

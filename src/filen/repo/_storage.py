@@ -16,6 +16,7 @@ from filen.api.v3.models.dir import (
     FolderPublicLinkEditRequestData,
     FolderPublicLinkSizeRequestData,
     FolderRenameRequestData,
+    FolderSizeRequestData,
 )
 from filen.api.v3.models.file import FileMoveRequestData, FilePublicLinkEditRequestData, FileRenameRequestData
 from filen.api.v3.models.link import PublicLinkExpiration
@@ -40,7 +41,7 @@ from .models import (
     FolderContent,
     FolderInfo,
     FolderMetadata,
-    FolderPublicLinkSize,
+    FolderSizeInfo,
     PublicLinkStatus,
     StorageItemExists,
     StorageItemPresent,
@@ -165,6 +166,10 @@ class Storage(RepoBase, StorageMixIn):
         folder_info_data['name'] = metadata.name
 
         return FolderInfo.model_validate(folder_info_data)
+
+    def folder_size(self, uuid: ItemId, *, trash: bool = False) -> FolderSizeInfo:
+        data = FolderSizeRequestData(uuid=uuid, trash=trash)
+        return self._api.v3.dir.size(data).data_as(FolderSizeInfo)
 
     def folder_content(self, uuid: ItemId | FolderContentType | None = None) -> FolderContent:
         """Retrieve folder content with metadata decryption"""
@@ -466,11 +471,11 @@ class Storage(RepoBase, StorageMixIn):
 
         return response.data_as(PublicLinkStatus, item_uuid=uuid, type=link_type, size=size, key=key, link=link)
 
-    def folder_public_link_size(self, folder_uuid: ItemId, link_uuid: ItemId) -> FolderPublicLinkSize:
+    def folder_public_link_size(self, folder_uuid: ItemId, link_uuid: ItemId) -> FolderSizeInfo:
         """Return a folder public link size"""
 
         data = FolderPublicLinkSizeRequestData(uuid=folder_uuid, link_uuid=link_uuid)
-        return self._api.v3.dir.link_size(data).data_as(FolderPublicLinkSize)
+        return self._api.v3.dir.link_size(data).data_as(FolderSizeInfo)
 
     def edit_file_public_link(
         self,
@@ -635,6 +640,10 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
         folder_info_data['name'] = metadata.name
 
         return FolderInfo.model_validate(folder_info_data)
+
+    async def folder_size(self, uuid: ItemId, *, trash: bool = False) -> FolderSizeInfo:
+        data = FolderSizeRequestData(uuid=uuid, trash=trash)
+        return (await self._api.v3.dir.size(data)).data_as(FolderSizeInfo)
 
     async def folder_content(self, uuid: ItemId | FolderContentType | None = None) -> FolderContent:
         uuid = uuid if uuid else (await self._ensure_base_folder_uuid())
@@ -932,11 +941,11 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
 
         return response.data_as(PublicLinkStatus, item_uuid=uuid, type=link_type, size=size, key=key, link=link)
 
-    async def folder_public_link_size(self, folder_uuid: ItemId, link_uuid: ItemId) -> FolderPublicLinkSize:
+    async def folder_public_link_size(self, folder_uuid: ItemId, link_uuid: ItemId) -> FolderSizeInfo:
         """Return a folder public link size"""
 
         data = FolderPublicLinkSizeRequestData(uuid=folder_uuid, link_uuid=link_uuid)
-        return (await self._api.v3.dir.link_size(data)).data_as(FolderPublicLinkSize)
+        return (await self._api.v3.dir.link_size(data)).data_as(FolderSizeInfo)
 
     async def edit_file_public_link(
         self,

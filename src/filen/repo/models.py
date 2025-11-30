@@ -254,6 +254,12 @@ class FolderDetail(BaseModel):
         )
 
 
+class FolderSizeInfo(BaseModel):
+    size: int
+    folders: int
+    files: int
+
+
 class FolderTreeItem(NamedTuple):
     path: str
     folders: list[str | FolderDetail]
@@ -279,9 +285,3 @@ class PublicLinkStatus(BaseModel):
 
     def __bool__(self) -> bool:
         return self.exists
-
-
-class FolderPublicLinkSize(BaseModel):
-    size: int
-    folders: int
-    files: int

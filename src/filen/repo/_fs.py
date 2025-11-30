@@ -11,6 +11,7 @@ from .models import (
     FileDetail,
     FolderContent,
     FolderDetail,
+    FolderSizeInfo,
     FolderTreeItem,
     PublicLinkExpiration,
     PublicLinkStatus,
@@ -234,6 +235,13 @@ class FS(RepoBase, FSMixIn):
             parent_uuid = folder_created.uuid
 
         return parent_uuid
+
+    def dirsize(self, path: str, *, trash: bool = False) -> FolderSizeInfo:
+        """Return a folder size info"""
+
+        exists = self.exists(path)
+        self._check_path(path, exists, raise_for_file=True)
+        return self._storage.folder_size(exists.uuid, trash=trash)
 
     def move(
         self,
@@ -462,6 +470,13 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
             parent_uuid = folder_created.uuid
 
         return parent_uuid
+
+    async def dirsize(self, path: str, *, trash: bool = False) -> FolderSizeInfo:
+        """Return a folder size info"""
+
+        exists = await self.exists(path)
+        self._check_path(path, exists, raise_for_file=True)
+        return await self._storage.folder_size(exists.uuid, trash=trash)
 
     async def move(
         self,

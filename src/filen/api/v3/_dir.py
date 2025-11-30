@@ -17,11 +17,14 @@ from .models.dir import (
     FolderPublicLinkSizeResponseData,
     FolderPublicLinkStatusResponseData,
     FolderRenameRequestData,
+    FolderSizeRequestData,
+    FolderSizeResponseData,
 )
 
 
 class DirEndpoint(APIv3Endpoint):
     info = '/dir'
+    size = '/dir/size'
     content = '/dir/content'
     download = '/dir/download'
     present = '/dir/present'
@@ -42,6 +45,9 @@ class DirEndpoint(APIv3Endpoint):
 class DirAPI(APIBase):
     def info(self, data: StorageItemUUIDRequestData) -> FolderInfoResponseData:
         return self._post(DirEndpoint.info, data, FolderInfoResponseData)
+
+    def size(self, data: FolderSizeRequestData) -> FolderSizeResponseData:
+        return self._post(DirEndpoint.size, data, FolderSizeResponseData)
 
     def content(self, data: FolderContentRequestData) -> FolderContentResponseData:
         return self._post(DirEndpoint.content, data, FolderContentResponseData)
@@ -92,6 +98,9 @@ class DirAPI(APIBase):
 class AsyncDirAPI(AsyncAPIBase):
     async def info(self, data: StorageItemUUIDRequestData) -> FolderInfoResponseData:
         return await self._post(DirEndpoint.info, data, FolderInfoResponseData)
+
+    async def size(self, data: FolderSizeRequestData) -> FolderSizeResponseData:
+        return await self._post(DirEndpoint.size, data, FolderSizeResponseData)
 
     async def content(self, data: FolderContentRequestData) -> FolderContentResponseData:
         return await self._post(DirEndpoint.content, data, FolderContentResponseData)
