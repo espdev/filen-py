@@ -98,10 +98,6 @@ class EnsureContextMixIn:
         self._ensure_base_folder_uuid()
 
 
-class RepoBase(RepoGenericBase[FilenAPI, RunnerBase], EnsureContextMixIn, RepoFactoryMixIn):
-    """Repository base class for all sync repository classes"""
-
-
 class AsyncEnsureContextMixIn:
     _context: Context
     _api: AsyncFilenAPI
@@ -166,6 +162,10 @@ class AsyncEnsureContextMixIn:
         await self._ensure_master_keys()
         await self._ensure_key_pair()
         await self._ensure_base_folder_uuid()
+
+
+class RepoBase(RepoGenericBase[FilenAPI, RunnerBase], EnsureContextMixIn, RepoFactoryMixIn):
+    """Repository base class for all sync repository classes"""
 
 
 class AsyncRepoBase(RepoGenericBase[AsyncFilenAPI, AsyncRunnerBase], AsyncEnsureContextMixIn, RepoFactoryMixIn):
