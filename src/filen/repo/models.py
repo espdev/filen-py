@@ -78,6 +78,7 @@ class FileInfo(BaseModel):
     bucket: str
     metadata: FileMetadata
     name_hashed: str
+    chunks: int
     favorited: bool
     versioned: bool = False
     trash: bool
@@ -194,11 +195,12 @@ class FileDetail(BaseModel):
     name: str
     uuid: UUID
     parent: UUID
-    size: int
     mime: str
+    size: int
+    chunks: int
     favorited: bool
     trash: bool
-    created: datetime
+    timestamp: datetime
     last_modified: datetime
 
     @computed_field
@@ -214,11 +216,12 @@ class FileDetail(BaseModel):
             name=file_info.metadata.name,
             uuid=file_info.uuid,
             parent=file_info.parent,
-            size=file_info.metadata.size,
             mime=file_info.metadata.mime,
+            size=file_info.metadata.size,
+            chunks=file_info.chunks,
             favorited=file_info.favorited,
             trash=file_info.trash,
-            created=datetime.fromtimestamp(file_info.timestamp),
+            timestamp=datetime.fromtimestamp(file_info.timestamp),
             last_modified=datetime.fromtimestamp(file_info.metadata.last_modified / 1000),
         )
 
@@ -230,7 +233,7 @@ class FolderDetail(BaseModel):
     parent: UUID | None
     favorited: bool
     trash: bool
-    created: datetime
+    timestamp: datetime
 
     @computed_field
     def type(self) -> Literal['folder']:
@@ -247,7 +250,7 @@ class FolderDetail(BaseModel):
             parent=folder_info.parent,
             favorited=folder_info.favorited,
             trash=folder_info.trash,
-            created=datetime.fromtimestamp(folder_info.timestamp),
+            timestamp=datetime.fromtimestamp(folder_info.timestamp),
         )
 
 

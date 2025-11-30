@@ -16,6 +16,7 @@ class FileInfo(ValidationAliasedModel):
     bucket: str
     metadata: str
     name_hashed: str
+    chunks: int
     favorited: bool
     versioned: bool
     trash: bool
