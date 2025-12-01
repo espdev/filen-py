@@ -1,6 +1,7 @@
-from asyncio import CancelledError
+import asyncio
 from collections.abc import AsyncIterator, Iterator
 import logging
+import threading
 import time
 
 import anyio
@@ -9,6 +10,7 @@ from humanize import naturaldelta, naturalsize
 from filen._logging import logger
 from filen.config import UPLOAD_CHUNK_SIZE
 from filen.crypto import decrypt_content
+from filen.errors import DownloadCancelled, DownloadError
 
 from ._base import AsyncRepoBase, RepoBase
 from .models import FileInfo
@@ -28,16 +30,76 @@ def _calc_chunk_range(start: int, end: int, chunk_count: int) -> tuple[int, int]
     return first, last
 
 
+class FileDownloadController:
+    """Control sync downloading file process"""
+
+    def __init__(self, autostart: bool = True):
+        self._start_event = threading.Event()
+        self._pause_event = threading.Event()
+        self._is_cancelled = False
+        self._autostart = autostart
+
+        if autostart:
+            self._start_event.set()
+        self._pause_event.set()
+
+    @property
+    def is_cancelled(self) -> bool:
+        """Return True if the downloading process was cancelled"""
+        return self._is_cancelled
+
+    def start(self):
+        """Start/resume downloading process"""
+        self._start_event.set()
+        self._pause_event.set()
+
+    def pause(self):
+        """Pause downloading process"""
+        self._pause_event.clear()
+
+    def cancel(self):
+        """Cancel downloading process (interrupt downloading)"""
+        self._is_cancelled = True
+        self.start()
+
+    def reset(self):
+        """Reset the controller state"""
+        self._start_event = threading.Event()
+        self._pause_event = threading.Event()
+        self._is_cancelled = False
+
+        if self._autostart:
+            self._start_event.set()
+        self._pause_event.set()
+
+    def wait_for_start(self):
+        """Wait for start (called in the downloader)"""
+        self._start_event.wait()
+
+    def wait_for_resume(self):
+        """Wait for resume after pause (called in the downloader)"""
+        self._pause_event.wait()
+
+    def raise_for_cancellation(self, *_):
+        """Raise DownloadCancelled if the downloading process was cancelled"""
+        if self._is_cancelled:
+            raise DownloadCancelled('Cancelled by download controller')
+
+
 class FileDownload(RepoBase):
     """Downloading files from the storage"""
 
     def stream(
         self,
         file_info: FileInfo,
+        *,
         start: int | None = None,
         end: int | None = None,
+        controller: FileDownloadController | None = None,
     ) -> Iterator[bytes]:
         """Streaming file download"""
+
+        raise NotImplementedError
 
 
 class AsyncChunkBuffer:
@@ -77,6 +139,11 @@ class AsyncChunkBuffer:
             data = self._chunk_buffer.pop(index, None)
             self._condition.notify_all()
             return data
+
+    async def clear(self):
+        async with self._condition:
+            self._chunk_buffer.clear()
+            self._condition.notify_all()
 
 
 class AsyncFileDownloadController:
@@ -137,7 +204,7 @@ class AsyncFileDownloadController:
         await self._pause_event.wait()
 
     def raise_for_cancellation(self, cancel_scope: anyio.CancelScope | None = None):
-        """Raise CancelledError if the downloading process was cancelled
+        """Raise DownloadCancelled or call cancel_scope if the downloading process was cancelled
 
         Called in the downloader
         """
@@ -146,7 +213,7 @@ class AsyncFileDownloadController:
             if cancel_scope:
                 cancel_scope.cancel(msg)
             else:
-                raise CancelledError(msg)
+                raise DownloadCancelled(msg)
 
 
 class AsyncFileDownload(AsyncRepoBase):
@@ -252,16 +319,24 @@ class AsyncFileDownload(AsyncRepoBase):
 
                         yield chunk_data
 
-            except* CancelledError as e:
-                msg = 'Download file {name!r} <{uuid}> was cancelled at {pct:.1f}%, {count}/{total} chunks'.format(
-                    name=file_info.metadata.name,
-                    uuid=file_info.uuid,
-                    pct=chunk_count / num_chunks_to_download * 100,
-                    count=chunk_count,
-                    total=num_chunks_to_download,
+            except* asyncio.CancelledError as exc_gr:
+                await chunk_buffer.clear()
+
+                pct = chunk_count / num_chunks_to_download * 100
+                msg = (
+                    f'Downloading file {file_info.metadata.name!r} <{file_info.uuid}> was cancelled at {pct:.1f}%, '
+                    f'{chunk_count}/{num_chunks_to_download} chunks'
                 )
                 logger.warning(msg)
-                raise CancelledError(msg) from e
+                raise DownloadCancelled(msg) from exc_gr
+
+            except* Exception as exc_gr:
+                await chunk_buffer.clear()
+
+                raise DownloadError(
+                    f'Downloading file {file_info.metadata.name!r} <{file_info.uuid}> has failed.'
+                ) from exc_gr
+
             else:
                 took = time.monotonic() - ts
 

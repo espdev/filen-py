@@ -6,7 +6,7 @@ Repositories implement functionality for interacting with Filen service on high-
 
 from ._account import Account, AsyncAccount
 from ._base import AsyncEnsureContextMixIn, AsyncRepoBase, EnsureContextMixIn, RepoBase, RepoFactoryMixIn, repo
-from ._download import AsyncFileDownload, AsyncFileDownloadController
+from ._download import AsyncFileDownload, AsyncFileDownloadController, FileDownload, FileDownloadController
 from ._fs import FS, AsyncFS
 from ._storage import AsyncStorage, Storage
 
@@ -23,6 +23,8 @@ __all__ = [
     'AsyncStorage',
     'FS',
     'AsyncFS',
+    'FileDownload',
+    'FileDownloadController',
     'AsyncFileDownload',
     'AsyncFileDownloadController',
 ]
