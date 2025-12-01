@@ -1,6 +1,5 @@
-from typing import Literal
 from asyncio import CancelledError
-from collections.abc import AsyncGenerator, Iterator
+from collections.abc import AsyncIterator, Iterator
 import logging
 import time
 
@@ -164,7 +163,7 @@ class AsyncFileDownload(AsyncRepoBase):
         start: int | None = None,
         end: int | None = None,
         controller: AsyncFileDownloadController | None = None,
-    ) -> AsyncGenerator[bytes, Literal['cancel'], None]:  # noqa
+    ) -> AsyncIterator[bytes]:
         """Streaming file download"""
 
         if start is None:
