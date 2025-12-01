@@ -16,7 +16,7 @@ from .models import FileInfo
 DEBUG_PRINT_INTERVAL = 50
 
 
-def calc_chunk_range(start: int, end: int, chunk_count: int) -> tuple[int, int]:
+def _calc_chunk_range(start: int, end: int, chunk_count: int) -> tuple[int, int]:
     """Calculate [first, last] chunk indices for given [start, end] bytes range"""
 
     first = start // UPLOAD_CHUNK_SIZE
@@ -38,27 +38,6 @@ class FileDownload(RepoBase):
         end: int | None = None,
     ) -> Iterator[bytes]:
         """Streaming file download"""
-
-        # first, last = calc_chunk_range(start, end, file_info.chunks)
-        # chunks_to_download = last - first + 1
-        # is_entire_file = chunks_to_download == file_info.chunks
-        #
-        # for chunk in range(first, last):
-        #     pass
-
-    def _fetch_and_decrypt_chunk(self, file_info: FileInfo, chunk: int) -> bytes:
-        data = self._api.v3.file.download.chunk(
-            uuid=file_info.uuid,
-            bucket=file_info.bucket,
-            region=file_info.region,
-            chunk=chunk,
-        )
-
-        return decrypt_content(
-            data=data,
-            key=file_info.metadata.key,
-            version=file_info.version,
-        )
 
 
 class AsyncChunkBuffer:
@@ -201,7 +180,7 @@ class AsyncFileDownload(AsyncRepoBase):
         await controller.wait_for_start()
         controller.raise_for_cancellation()
 
-        first, last = calc_chunk_range(start, end, file_info.chunks)
+        first, last = _calc_chunk_range(start, end, file_info.chunks)
         num_chunks_to_download = last - first + 1
         is_entire_file = num_chunks_to_download == file_info.chunks
 
