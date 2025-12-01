@@ -1,5 +1,6 @@
 from typing import NoReturn, Self
 from dataclasses import dataclass
+import threading
 from uuid import UUID
 
 import anyio
@@ -35,6 +36,7 @@ class Context:
 
     download_chunks_concurrency: int
     download_chunks_backpressure: int
+    concurrent_downloads_semaphore: threading.Semaphore
     async_concurrent_downloads_semaphore: anyio.Semaphore
 
     @classmethod
@@ -53,6 +55,7 @@ class Context:
             base_folder_uuid=None,
             download_chunks_concurrency=config.download_chunks_concurrency,
             download_chunks_backpressure=config.download_chunks_backpressure,
+            concurrent_downloads_semaphore=threading.Semaphore(config.max_concurrent_downloads),
             async_concurrent_downloads_semaphore=anyio.Semaphore(config.max_concurrent_downloads),
         )
 
