@@ -1,5 +1,6 @@
-from .._base import APIBase, AsyncAPIBase
+from .._base import APIBase, AsyncAPIBase, api
 from ._base import APIv3Endpoint
+from ._download import AsyncFileDownloadAPI, FileDownloadAPI
 from .models.base import ResponseModel, StorageItemExistsRequestData, StorageItemUUIDRequestData
 from .models.file import (
     FileExistsResponseData,
@@ -25,6 +26,8 @@ class FileEndpoint(APIv3Endpoint):
 
 
 class FileAPI(APIBase):
+    download: FileDownloadAPI = api(FileDownloadAPI)
+
     def info(self, data: StorageItemUUIDRequestData) -> FileInfoResponseData:
         return self._post(FileEndpoint.info, data, FileInfoResponseData)
 
@@ -54,6 +57,8 @@ class FileAPI(APIBase):
 
 
 class AsyncFileAPI(AsyncAPIBase):
+    download: AsyncFileDownloadAPI = api(AsyncFileDownloadAPI)
+
     async def info(self, data: StorageItemUUIDRequestData) -> FileInfoResponseData:
         return await self._post(FileEndpoint.info, data, FileInfoResponseData)
 

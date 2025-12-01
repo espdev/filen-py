@@ -45,11 +45,21 @@ FILEN_FILE_PUBLIC_LINK_BASE_URL: Final = f'{FILEN_APP_URL}/#/d'
 FILEN_FOLDER_PUBLIC_LINK_BASE_URL: Final = f'{FILEN_APP_URL}/#/f'
 
 DEFAULT_REQUEST_TIMEOUT: Final = 15.0  # sec
-DEFAULT_MAX_CONNECTIONS: Final = 50
+DEFAULT_MAX_CONNECTIONS: Final = 100
 DEFAULT_MAX_KEEPALIVE_CONNECTIONS: Final = 20
-DEFAULT_CONCURRENCY: Final = 200
+DEFAULT_TASK_GROUP_CONCURRENCY: Final = 200
 
 STORAGE_ROOT_NAME: Final = 'default'
+
+DEFAULT_UPLOAD_REGION: Final = 'de-1'
+DEFAULT_UPLOAD_BUCKET: Final = 'filen-1'
+
+UPLOAD_CHUNK_SIZE: Final = 1024 * 1024  # 1 MB
+
+DOWNLOAD_STREAM_CHUNK_SIZE: Final = 64 * 1024  # 64 KB
+DOWNLOAD_CHUNKS_CONCURRENCY: Final = 32
+DOWNLOAD_CHUNKS_BACKPRESSURE: Final = 100  # max number of chunks in memory for one file
+MAX_CONCURRENT_DOWNLOADS: Final = 16
 
 
 class AuthVersion(IntEnum):
@@ -114,6 +124,10 @@ class FilenConfig(BaseSettings):
 
     request_timeout: float | tuple[float, float, float, float] = DEFAULT_REQUEST_TIMEOUT
     max_connections: int = DEFAULT_MAX_CONNECTIONS
+
+    download_chunks_concurrency: int = DOWNLOAD_CHUNKS_CONCURRENCY
+    max_concurrent_downloads: int = MAX_CONCURRENT_DOWNLOADS
+    download_chunks_backpressure: int = DOWNLOAD_CHUNKS_BACKPRESSURE
 
     model_config = SettingsConfigDict(
         frozen=True,

@@ -1,5 +1,6 @@
 from typing import Final
 
+from filen.config import FILE_ENCRYPTION_VERSION, FileEncryptionVersion
 from filen.errors import ContentDecryptError, ContentEncryptError
 
 from ._base import create_aes_256_gcm_cipher
@@ -9,7 +10,7 @@ IV_LENGTH: Final = 12
 AUTH_TAG_LENGTH: Final = 16
 
 
-def encrypt_content(data: bytes, key: str) -> bytes:
+def encrypt_content(data: bytes, key: str, version: FileEncryptionVersion = FILE_ENCRYPTION_VERSION) -> bytes:
     """Encrypt data content"""
 
     iv = generate_random_bytes(IV_LENGTH)
@@ -29,7 +30,7 @@ def encrypt_content(data: bytes, key: str) -> bytes:
     return b''.join([iv, data_enc, auth_tag])
 
 
-def decrypt_content(data: bytes, key: str) -> bytes:
+def decrypt_content(data: bytes, key: str, version: FileEncryptionVersion) -> bytes:
     """Decrypt data content"""
 
     try:

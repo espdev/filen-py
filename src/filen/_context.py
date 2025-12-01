@@ -2,6 +2,8 @@ from typing import NoReturn, Self
 from dataclasses import dataclass
 from uuid import UUID
 
+import anyio
+
 from filen.config import (
     AuthVersion,
     FilenConfig,
@@ -31,6 +33,10 @@ class Context:
     private_key: str | None
     base_folder_uuid: UUID | None
 
+    download_chunks_concurrency: int
+    download_chunks_backpressure: int
+    async_concurrent_downloads_semaphore: anyio.Semaphore
+
     @classmethod
     def create_from_config(cls, config: FilenConfig) -> Self:
         return cls(
@@ -45,6 +51,9 @@ class Context:
             public_key=None,
             private_key=None,
             base_folder_uuid=None,
+            download_chunks_concurrency=config.download_chunks_concurrency,
+            download_chunks_backpressure=config.download_chunks_backpressure,
+            async_concurrent_downloads_semaphore=anyio.Semaphore(config.max_concurrent_downloads),
         )
 
     @property

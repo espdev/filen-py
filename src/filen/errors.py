@@ -1,3 +1,4 @@
+from asyncio import CancelledError
 from enum import StrEnum, auto
 from http import HTTPStatus
 
@@ -121,6 +122,9 @@ class RequestErrorHandler:
                     f'{exc_type.__name__}: "{exc_val}" for {exc_val.request.url}',
                     http_error=exc_val,
                 ) from exc_val
+
+            case CancelledError():
+                return False
 
             case _:
                 raise FilenError(*exc_val.args) from exc_val

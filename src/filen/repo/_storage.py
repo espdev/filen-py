@@ -33,6 +33,7 @@ from filen.crypto import (
 from filen.errors import StorageError
 
 from ._base import AsyncRepoBase, RepoBase, repo
+from ._download import AsyncFileDownload, FileDownload
 from ._lock import AsyncLock, Lock, LockResource
 from .models import (
     CreateFolderInfo,
@@ -140,6 +141,8 @@ class Storage(RepoBase, StorageMixIn):
 
     Provides methods for manipulating with directories and files in the cloud storage.
     """
+
+    download: FileDownload = repo(FileDownload)
 
     _drive_write_lock: Lock = repo(Lock, resource=LockResource.drive_write)
 
@@ -613,6 +616,8 @@ class Storage(RepoBase, StorageMixIn):
 
 class AsyncStorage(AsyncRepoBase, StorageMixIn):
     """Async Storage repository"""
+
+    download: AsyncFileDownload = repo(AsyncFileDownload)
 
     _drive_write_lock: AsyncLock = repo(AsyncLock, resource=LockResource.drive_write)
 

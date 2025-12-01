@@ -6,7 +6,7 @@ from httpx import AsyncClient, Client, Limits, Timeout
 from filen._context import Context
 from filen._logging import logger
 from filen.api import AsyncFilenAPI, FilenAPI
-from filen.config import DEFAULT_CONCURRENCY, DEFAULT_MAX_KEEPALIVE_CONNECTIONS, FilenConfig
+from filen.config import DEFAULT_MAX_KEEPALIVE_CONNECTIONS, DEFAULT_TASK_GROUP_CONCURRENCY, FilenConfig
 from filen.errors import FilenError
 from filen.repo import AsyncEnsureContextMixIn, AsyncRepoBase, EnsureContextMixIn, RepoBase, RepoFactoryMixIn
 from filen.runners import AsyncRunnerBase, AsyncThreadRunner, RunnerBase, ThreadRunner
@@ -137,7 +137,7 @@ class AsyncFilenClientBase(
             await self._http_client.aclose()
 
     def _create_default_runner(self) -> AsyncRunnerBase:
-        return AsyncThreadRunner(concurrency=DEFAULT_CONCURRENCY)
+        return AsyncThreadRunner(concurrency=DEFAULT_TASK_GROUP_CONCURRENCY)
 
     def _create_client(self, config: FilenConfig) -> AsyncClient:
         return AsyncClient(
