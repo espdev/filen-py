@@ -107,6 +107,7 @@ class AsyncTaskGroup:
         self._concurrency = Semaphore(concurrency or sys.maxsize)
         self._results = {}
         self._ts = 0
+        self._cancel_scope: CancelScope | None = None
 
     @property
     def results(self) -> dict[TaskId, Any]:
@@ -114,9 +115,9 @@ class AsyncTaskGroup:
 
     @property
     def cancel_scope(self) -> CancelScope:
-        if not self._tg:
+        if not self._cancel_scope:
             raise ValueError('Task group is not initialized. The context manager must be used.')
-        return self._tg.cancel_scope
+        return self._cancel_scope
 
     def add_task[T, **P](
         self,
@@ -160,6 +161,7 @@ class AsyncTaskGroup:
         self._ts = time.monotonic()
         self._results.clear()
         self._tg = create_task_group()
+        self._cancel_scope = self._tg.cancel_scope
         await self._tg.__aenter__()
         return self
 
