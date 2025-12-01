@@ -115,21 +115,26 @@ class AsyncFileDownloadController:
 
     @property
     def is_cancelled(self) -> bool:
+        """Return True if the downloading process was cancelled"""
         return self._is_cancelled
 
     def start(self):
+        """Start/resume downloading process"""
         self._start_event.set()
         self._pause_event.set()
 
     def pause(self):
+        """Pause downloading process"""
         if self._pause_event.is_set():
             self._pause_event = anyio.Event()
 
     def cancel(self):
+        """Cancel downloading process (interrupt downloading)"""
         self._is_cancelled = True
         self.start()
 
     def reset(self):
+        """Reset the controller state"""
         self._start_event = anyio.Event()
         self._pause_event = anyio.Event()
         self._is_cancelled = False
@@ -139,12 +144,24 @@ class AsyncFileDownloadController:
         self._pause_event.set()
 
     async def wait_for_start(self):
+        """Wait for start
+
+        Called in the downloader
+        """
         await self._start_event.wait()
 
-    async def wait_for_pause(self):
+    async def wait_for_resume(self):
+        """Wait for resume after pause
+
+        Called in the downloader
+        """
         await self._pause_event.wait()
 
     def raise_for_cancellation(self, cancel_scope: anyio.CancelScope | None = None):
+        """Raise CancelledError if the downloading process was cancelled
+
+        Called in the downloader
+        """
         if self._is_cancelled:
             msg = 'Cancelled by download controller'
             if cancel_scope:
@@ -217,7 +234,7 @@ class AsyncFileDownload(AsyncRepoBase):
                         tg.add_task(w_id, self._worker, file_info, controller, chunk_buffer, w_id)
 
                     for i, index in enumerate(range(first, last + 1), start=1):
-                        await controller.wait_for_pause()
+                        await controller.wait_for_resume()
                         controller.raise_for_cancellation(tg.cancel_scope)
 
                         chunk_data = await chunk_buffer.pop_chunk(index)
@@ -293,7 +310,7 @@ class AsyncFileDownload(AsyncRepoBase):
         ts = time.monotonic()
 
         while not controller.is_cancelled:
-            await controller.wait_for_pause()
+            await controller.wait_for_resume()
 
             index = await chunk_buffer.get_next_index()
             if index is None:
