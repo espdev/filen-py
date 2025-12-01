@@ -144,7 +144,7 @@ class AsyncFileDownloadController:
     async def wait_for_pause(self):
         await self._pause_event.wait()
 
-    def raise_for_cancelled(self, cancel_scope: anyio.CancelScope | None = None):
+    def raise_for_cancellation(self, cancel_scope: anyio.CancelScope | None = None):
         if self._is_cancelled:
             msg = 'Cancelled by download controller'
             if cancel_scope:
@@ -182,7 +182,7 @@ class AsyncFileDownload(AsyncRepoBase):
             controller = AsyncFileDownloadController()
 
         await controller.wait_for_start()
-        controller.raise_for_cancelled()
+        controller.raise_for_cancellation()
 
         first, last = calc_chunk_range(start, end, file_info.chunks)
         num_chunks_to_download = last - first + 1
@@ -205,7 +205,7 @@ class AsyncFileDownload(AsyncRepoBase):
         )
 
         async with self._context.async_concurrent_downloads_semaphore:
-            controller.raise_for_cancelled()
+            controller.raise_for_cancellation()
 
             ts = time.monotonic()
             chunk_count = 0
@@ -214,11 +214,11 @@ class AsyncFileDownload(AsyncRepoBase):
             try:
                 async with self._runner.task_group() as tg:
                     for w_id in range(self._context.download_chunks_concurrency):
-                        tg.add_task(w_id, self._worker, file_info, chunk_buffer, w_id)
+                        tg.add_task(w_id, self._worker, file_info, controller, chunk_buffer, w_id)
 
                     for i, index in enumerate(range(first, last + 1), start=1):
                         await controller.wait_for_pause()
-                        controller.raise_for_cancelled(tg.cancel_scope)
+                        controller.raise_for_cancellation(tg.cancel_scope)
 
                         chunk_data = await chunk_buffer.pop_chunk(index)
                         if chunk_data is None:
@@ -278,7 +278,13 @@ class AsyncFileDownload(AsyncRepoBase):
                     naturalsize(byte_count / took, binary=True),
                 )
 
-    async def _worker(self, file_info: FileInfo, chunk_buffer: AsyncChunkBuffer, worker_id: int) -> int:
+    async def _worker(
+        self,
+        file_info: FileInfo,
+        controller: AsyncFileDownloadController,
+        chunk_buffer: AsyncChunkBuffer,
+        worker_id: int,
+    ) -> int:
         """Download and decrypt file chunks"""
 
         logger.debug('Starting worker %d for file %r <%s>', worker_id, file_info.metadata.name, file_info.uuid)
@@ -286,7 +292,9 @@ class AsyncFileDownload(AsyncRepoBase):
         byte_count = 0
         ts = time.monotonic()
 
-        while True:
+        while not controller.is_cancelled:
+            await controller.wait_for_pause()
+
             index = await chunk_buffer.get_next_index()
             if index is None:
                 break
