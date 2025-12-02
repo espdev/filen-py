@@ -333,7 +333,7 @@ class AsyncFileDownload(AsyncRepoBase):
                     for w_id in range(self._context.download_chunks_concurrency):
                         tg.add_task(w_id, self._worker, file_info, controller, chunk_buffer, w_id)
 
-                    for i, index in enumerate(range(first, last + 1), start=1):
+                    for index in range(first, last + 1):
                         if controller.is_paused:
                             await self._on_status(status_callback, state=DownloadState.paused, progress=progress)
                         await controller.wait_for_resume()
@@ -350,14 +350,14 @@ class AsyncFileDownload(AsyncRepoBase):
                         progress = chunk_count / num_chunks_to_download
                         await self._on_status(status_callback, state=DownloadState.in_progress, progress=progress)
 
-                        if logger.isEnabledFor(logging.DEBUG) and i % DEBUG_PRINT_INTERVAL == 0:
+                        if logger.isEnabledFor(logging.DEBUG) and chunk_count % DEBUG_PRINT_INTERVAL == 0:
                             took = time.monotonic() - ts
                             logger.debug(
                                 'File %r <%s>: %.1f%%, %d/%d chunks, %s, %s/s',
                                 file_info.metadata.name,
                                 file_info.uuid,
-                                i / num_chunks_to_download * 100,
-                                i,
+                                chunk_count / num_chunks_to_download * 100,
+                                chunk_count,
                                 num_chunks_to_download,
                                 naturalsize(byte_count, binary=True),
                                 naturalsize(byte_count / took, binary=True),
