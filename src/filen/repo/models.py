@@ -262,8 +262,8 @@ class FolderSizeInfo(BaseModel):
 
 class FolderTreeItem(NamedTuple):
     path: str
-    folders: list[str | FolderDetail]
-    files: list[str | FileDetail]
+    folders: list[str | FolderDetail | FolderInfo]
+    files: list[str | FileDetail | FileInfo]
 
 
 class PublicLinkStatus(BaseModel):

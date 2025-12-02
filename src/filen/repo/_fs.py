@@ -1,14 +1,20 @@
 from typing import Final
+from os import PathLike
+from pathlib import Path
 import re
 from uuid import UUID
+
+from anyio import open_file
 
 from filen._logging import logger
 from filen.errors import StorageError
 
 from ._base import AsyncRepoBase, RepoBase, repo
+from ._download import AsyncDownloadStatusCallback
 from ._storage import AsyncStorage, Storage
 from .models import (
     FileDetail,
+    FileInfo,
     FolderContent,
     FolderDetail,
     FolderSizeInfo,
@@ -23,6 +29,7 @@ from .models import (
 TRASH_PATH: Final = '<trash>'
 
 type Tree = list[FolderTreeItem]
+type LocalPath = str | Path | PathLike
 
 
 class FSMixIn:
@@ -91,7 +98,7 @@ class FSMixIn:
                 return folders + files
 
     @staticmethod
-    def _walk_folder_tree(path: str, uuid: UUID, content: FolderContent, detail: bool) -> Tree:
+    def _walk_folder_tree(path: str, uuid: UUID, content: FolderContent, detail: bool, internal: bool = False) -> Tree:
         """Make a folder tree from flattened downloaded folder content in os.walk format"""
 
         tree_map = {uuid: [[], []]}
@@ -103,7 +110,14 @@ class FSMixIn:
                 continue
 
             folder_path = f'{path_map[folder.parent]}/{folder.name}'
-            folder_info = FolderDetail.from_info(folder_path, folder) if detail else folder.name
+
+            if detail:
+                if internal:
+                    folder_info = folder
+                else:
+                    folder_info = FolderDetail.from_info(folder_path, folder)
+            else:
+                folder_info = folder.name
 
             tree_map[folder.parent][0].append(folder_info)
 
@@ -114,7 +128,10 @@ class FSMixIn:
         for file in content.files:
             if detail:
                 file_path = f'{path_map[file.parent]}/{file.metadata.name}'
-                file_info = FileDetail.from_info(file_path, file)
+                if internal:
+                    file_info = file
+                else:
+                    file_info = FileDetail.from_info(file_path, file)
             else:
                 file_info = file.metadata.name
             tree_map[file.parent][1].append(file_info)
@@ -124,7 +141,10 @@ class FSMixIn:
         for parent, (folders, files) in tree_map.items():
             if detail:
                 folders.sort(key=lambda info: info.name)
-                files.sort(key=lambda info: info.name)
+                if internal:
+                    files.sort(key=lambda info: info.metadata.name)
+                else:
+                    files.sort(key=lambda info: info.name)
             else:
                 folders.sort()
                 files.sort()
@@ -524,6 +544,46 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
             await self._storage.rename_file(exists.uuid, new_name, overwrite_existing=overwrite_existing_file)
         else:
             await self._storage.rename_folder(exists.uuid, new_name)
+
+    async def download(
+        self,
+        src_path: str,
+        dst_path: LocalPath,
+        ensure_folder: bool = True,
+        status_callback: AsyncDownloadStatusCallback | None = None,
+    ) -> None:
+        """Download a file or folder from the storage to local folder"""
+
+        exists = await self.exists(src_path)
+        self._check_path(src_path, exists)
+
+        dst_path = Path(dst_path).expanduser().absolute()
+        if not dst_path.is_dir():
+            if ensure_folder:
+                dst_path.mkdir(parents=True)
+            else:
+                raise OSError(f'Destination folder {dst_path} does not exist.')
+
+        async def download_file(fi: FileInfo, file_path: Path) -> None:
+            try:
+                async with await open_file(file_path, 'wb') as fp:
+                    async for chunk in self._storage.download.stream(fi, status_callback=status_callback):
+                        await fp.write(chunk)
+                logger.debug("File %r downloaded to '%s'", src_path, file_path)
+            except Exception:
+                file_path.unlink(missing_ok=True)
+                raise
+
+        match exists.type:
+            case StorageItemType.file:
+                file_info = await self._storage.file_info(exists.uuid)
+                local_file_path = dst_path / file_info.metadata.name
+                await download_file(file_info, local_file_path)
+
+            case StorageItemType.folder:
+                # folder_content = await self._storage.folder_download(exists.uuid)
+                # tree = self._walk_folder_tree(src_path, exists.uuid, folder_content, detail=True, internal=True)
+                raise NotImplementedError
 
     async def link(self, path: str, detail: bool = False) -> str | PublicLinkStatus | None:
         """Get a public link status for the file/folder"""
