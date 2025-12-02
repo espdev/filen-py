@@ -1,10 +1,14 @@
+from typing import Awaitable, Callable
 import asyncio
 from collections.abc import AsyncIterator, Iterator
+from dataclasses import dataclass
+from enum import StrEnum, auto
 import logging
 import threading
 import time
 
 import anyio
+from anyio import to_thread
 from humanize import naturaldelta, naturalsize
 
 from filen._logging import logger
@@ -30,6 +34,27 @@ def _calc_chunk_range(start: int, end: int, chunk_count: int) -> tuple[int, int]
     return first, last
 
 
+class DownloadState(StrEnum):
+    queued = auto()
+    started = auto()
+    in_progress = auto()
+    paused = auto()
+    cancelled = auto()
+    failed = auto()
+    done = auto()
+
+
+@dataclass
+class DownloadStatus:
+    state: DownloadState
+    progress: float
+    error: ExceptionGroup | None
+
+
+type DownloadStatusCallback = Callable[[DownloadStatus], None]
+type AsyncDownloadStatusCallback = Callable[[DownloadStatus], None | Awaitable[None]]
+
+
 class FileDownloadController:
     """Control sync downloading file process"""
 
@@ -37,6 +62,7 @@ class FileDownloadController:
         self._start_event = threading.Event()
         self._pause_event = threading.Event()
         self._is_cancelled = False
+        self._is_paused = False
         self._autostart = autostart
 
         if autostart:
@@ -48,13 +74,19 @@ class FileDownloadController:
         """Return True if the downloading process was cancelled"""
         return self._is_cancelled
 
+    @property
+    def is_paused(self) -> bool:
+        return self._is_paused
+
     def start(self):
         """Start/resume downloading process"""
         self._start_event.set()
         self._pause_event.set()
+        self._is_paused = False
 
     def pause(self):
         """Pause downloading process"""
+        self._is_paused = True
         self._pause_event.clear()
 
     def cancel(self):
@@ -67,6 +99,7 @@ class FileDownloadController:
         self._start_event = threading.Event()
         self._pause_event = threading.Event()
         self._is_cancelled = False
+        self._is_paused = False
 
         if self._autostart:
             self._start_event.set()
@@ -96,6 +129,7 @@ class FileDownload(RepoBase):
         start: int | None = None,
         end: int | None = None,
         controller: FileDownloadController | None = None,
+        status_callback: DownloadStatusCallback | None = None,
     ) -> Iterator[bytes]:
         """Streaming file download"""
 
@@ -153,6 +187,7 @@ class AsyncFileDownloadController:
         self._start_event = anyio.Event()
         self._pause_event = anyio.Event()
         self._is_cancelled = False
+        self._is_paused = False
         self._autostart = autostart
 
         if autostart:
@@ -164,14 +199,20 @@ class AsyncFileDownloadController:
         """Return True if the downloading process was cancelled"""
         return self._is_cancelled
 
+    @property
+    def is_paused(self) -> bool:
+        return self._is_paused
+
     def start(self):
         """Start/resume downloading process"""
         self._start_event.set()
         self._pause_event.set()
+        self._is_paused = False
 
     def pause(self):
         """Pause downloading process"""
         if self._pause_event.is_set():
+            self._is_paused = True
             self._pause_event = anyio.Event()
 
     def cancel(self):
@@ -184,6 +225,7 @@ class AsyncFileDownloadController:
         self._start_event = anyio.Event()
         self._pause_event = anyio.Event()
         self._is_cancelled = False
+        self._is_paused = False
 
         if self._autostart:
             self._start_event.set()
@@ -226,6 +268,7 @@ class AsyncFileDownload(AsyncRepoBase):
         start: int | None = None,
         end: int | None = None,
         controller: AsyncFileDownloadController | None = None,
+        status_callback: AsyncDownloadStatusCallback | None = None,
     ) -> AsyncIterator[bytes]:
         """Streaming file download"""
 
@@ -245,6 +288,9 @@ class AsyncFileDownload(AsyncRepoBase):
             controller = AsyncFileDownloadController()
 
         await controller.wait_for_start()
+
+        if controller.is_cancelled:
+            await self._on_status(status_callback, state=DownloadState.cancelled)
         controller.raise_for_cancellation()
 
         first, last = _calc_chunk_range(start, end, file_info.chunks)
@@ -267,19 +313,28 @@ class AsyncFileDownload(AsyncRepoBase):
             file_info.uuid,
         )
 
+        await self._on_status(status_callback, state=DownloadState.queued)
+
         async with self._context.async_concurrent_downloads_semaphore:
+            if controller.is_cancelled:
+                await self._on_status(status_callback, state=DownloadState.cancelled)
             controller.raise_for_cancellation()
 
             ts = time.monotonic()
             chunk_count = 0
             byte_count = 0
+            progress = 0.0
 
             try:
                 async with self._runner.task_group() as tg:
+                    await self._on_status(status_callback, state=DownloadState.started)
+
                     for w_id in range(self._context.download_chunks_concurrency):
                         tg.add_task(w_id, self._worker, file_info, controller, chunk_buffer, w_id)
 
                     for i, index in enumerate(range(first, last + 1), start=1):
+                        if controller.is_paused:
+                            await self._on_status(status_callback, state=DownloadState.paused, progress=progress)
                         await controller.wait_for_resume()
                         controller.raise_for_cancellation(tg.cancel_scope)
 
@@ -290,6 +345,9 @@ class AsyncFileDownload(AsyncRepoBase):
 
                         chunk_count += 1
                         byte_count += len(chunk_data)
+
+                        progress = chunk_count / num_chunks_to_download
+                        await self._on_status(status_callback, state=DownloadState.in_progress, progress=progress)
 
                         if logger.isEnabledFor(logging.DEBUG) and i % DEBUG_PRINT_INTERVAL == 0:
                             took = time.monotonic() - ts
@@ -328,10 +386,12 @@ class AsyncFileDownload(AsyncRepoBase):
                     f'{chunk_count}/{num_chunks_to_download} chunks'
                 )
                 logger.warning(msg)
+                await self._on_status(status_callback, state=DownloadState.cancelled, progress=progress)
                 raise DownloadCancelled(msg) from exc_gr
 
             except* Exception as exc_gr:
                 await chunk_buffer.clear()
+                await self._on_status(status_callback, state=DownloadState.failed, progress=progress, error=exc_gr)
 
                 raise DownloadError(
                     f'Downloading file {file_info.metadata.name!r} <{file_info.uuid}> has failed.'
@@ -348,6 +408,8 @@ class AsyncFileDownload(AsyncRepoBase):
                     naturalsize(byte_count, binary=True),
                     naturalsize(byte_count / took, binary=True),
                 )
+
+                await self._on_status(status_callback, state=DownloadState.done, progress=1.0)
 
     async def _worker(
         self,
@@ -391,3 +453,20 @@ class AsyncFileDownload(AsyncRepoBase):
         )
 
         return chunk_count
+
+    @staticmethod
+    async def _on_status(
+        callback: AsyncDownloadStatusCallback | None,
+        state: DownloadState,
+        progress: float = 0.0,
+        error: ExceptionGroup | None = None,
+    ) -> None:
+        if not callback:
+            return
+        try:
+            if asyncio.iscoroutinefunction(callback):
+                await callback(DownloadStatus(state=state, progress=progress, error=error))
+            else:
+                await to_thread.run_sync(callback, DownloadStatus(state=state, progress=progress, error=error))
+        except Exception as e:
+            logger.exception('An error occurred in status callback: %s', e)
