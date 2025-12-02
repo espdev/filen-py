@@ -553,7 +553,6 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
         src_path: str,
         dst_path: LocalPath,
         *,
-        ensure_folder: bool = True,
         resume_download: bool = False,
         verify_hash: bool = False,
         status_callback: AsyncDownloadStatusCallback | None = None,
@@ -564,16 +563,20 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
         self._check_path(src_path, exists)
 
         dst_path = Path(dst_path).expanduser().absolute()
-        if not dst_path.is_dir():
-            if ensure_folder:
-                dst_path.mkdir(parents=True)
-            else:
-                raise OSError(f'Destination folder {dst_path} does not exist.')
 
         match exists.type:
             case StorageItemType.file:
                 file_info = await self._storage.file_info(exists.uuid)
-                local_file_path = dst_path / file_info.metadata.name
+
+                if dst_path.is_dir():
+                    local_file_path = dst_path / file_info.metadata.name
+                elif not dst_path.parent.is_dir():
+                    raise OSError(f'Destination folder {dst_path.parent} does not exist.')
+                else:
+                    local_file_path = dst_path
+
+                logger.debug("Downloading %r file to '%s' ...", src_path, local_file_path)
+
                 await self._download_file(
                     file_info,
                     local_file_path,
@@ -581,7 +584,8 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
                     verify_hash=verify_hash,
                     status_callback=status_callback,
                 )
-                logger.debug("File %r downloaded to '%s'", src_path, local_file_path)
+
+                logger.debug("%r file downloaded to '%s'", src_path, local_file_path)
 
             case StorageItemType.folder:
                 # folder_content = await self._storage.folder_download(exists.uuid)
