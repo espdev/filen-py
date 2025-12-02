@@ -304,13 +304,14 @@ class AsyncFileDownload(AsyncRepoBase):
         )
 
         logger.debug(
-            '%d/%d [%d..%d] chunks will be downloaded for file %r <%s>',
+            '%d/%d [%d..%d] chunks will be downloaded for file %r <%s> %s',
             num_chunks_to_download,
             file_info.chunks,
             first,
             last,
             file_info.metadata.name,
             file_info.uuid,
+            naturalsize(file_info.metadata.size, binary=True),
         )
 
         await self._on_status(status_callback, state=DownloadState.queued)
@@ -352,14 +353,13 @@ class AsyncFileDownload(AsyncRepoBase):
                         if logger.isEnabledFor(logging.DEBUG) and i % DEBUG_PRINT_INTERVAL == 0:
                             took = time.monotonic() - ts
                             logger.debug(
-                                'File %r <%s>: %.1f%%, %d/%d chunks, %s/%s, %s/s',
+                                'File %r <%s>: %.1f%%, %d/%d chunks, %s, %s/s',
                                 file_info.metadata.name,
                                 file_info.uuid,
                                 i / num_chunks_to_download * 100,
                                 i,
                                 num_chunks_to_download,
                                 naturalsize(byte_count, binary=True),
-                                naturalsize(file_info.metadata.size, binary=True),
                                 naturalsize(byte_count / took, binary=True),
                             )
 
