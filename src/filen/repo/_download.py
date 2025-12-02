@@ -1,7 +1,7 @@
 from typing import Awaitable, Callable
 import asyncio
 from collections.abc import AsyncIterator, Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum, auto
 import logging
 import threading
@@ -48,10 +48,12 @@ class DownloadState(StrEnum):
 class DownloadStatus:
     file_info: FileInfo
     controller: 'AsyncFileDownloadController'
+    start: int
+    end: int
     state: DownloadState
-    chunk_count: int
     byte_count: int
     error: ExceptionGroup | None
+    timestamp: int = field(default_factory=time.time)
 
 
 type DownloadStatusCallback = Callable[[DownloadStatus], None]
@@ -294,7 +296,12 @@ class AsyncFileDownload(AsyncRepoBase):
 
         if controller.is_cancelled:
             await self._on_status(
-                status_callback, file_info=file_info, controller=controller, state=DownloadState.cancelled
+                status_callback,
+                file_info=file_info,
+                controller=controller,
+                start=start,
+                end=end,
+                state=DownloadState.cancelled,
             )
         controller.raise_for_cancellation()
 
@@ -319,12 +326,24 @@ class AsyncFileDownload(AsyncRepoBase):
             naturalsize(file_info.metadata.size, binary=True),
         )
 
-        await self._on_status(status_callback, file_info=file_info, controller=controller, state=DownloadState.queued)
+        await self._on_status(
+            status_callback,
+            file_info=file_info,
+            controller=controller,
+            start=start,
+            end=end,
+            state=DownloadState.queued,
+        )
 
         async with self._context.async_concurrent_downloads_semaphore:
             if controller.is_cancelled:
                 await self._on_status(
-                    status_callback, file_info=file_info, controller=controller, state=DownloadState.cancelled
+                    status_callback,
+                    file_info=file_info,
+                    controller=controller,
+                    start=start,
+                    end=end,
+                    state=DownloadState.cancelled,
                 )
             controller.raise_for_cancellation()
 
@@ -335,7 +354,12 @@ class AsyncFileDownload(AsyncRepoBase):
             try:
                 async with self._runner.task_group() as tg:
                     await self._on_status(
-                        status_callback, file_info=file_info, controller=controller, state=DownloadState.started
+                        status_callback,
+                        file_info=file_info,
+                        controller=controller,
+                        start=start,
+                        end=end,
+                        state=DownloadState.started,
                     )
 
                     for w_id in range(self._context.download_chunks_concurrency):
@@ -347,8 +371,9 @@ class AsyncFileDownload(AsyncRepoBase):
                                 status_callback,
                                 file_info=file_info,
                                 controller=controller,
+                                start=start,
+                                end=end,
                                 state=DownloadState.paused,
-                                chunk_count=chunk_count,
                                 byte_count=byte_count,
                             )
                         await controller.wait_for_resume()
@@ -359,6 +384,18 @@ class AsyncFileDownload(AsyncRepoBase):
                             logger.error("Chunk data is None. That shouldn't happen.")
                             continue
 
+                        if not is_entire_file:
+                            chunk_start_offset = index * UPLOAD_CHUNK_SIZE
+                            start_offset = 0
+                            end_offset = len(chunk_data)
+
+                            if index == first:
+                                start_offset = max(0, start - chunk_start_offset)
+                            if index == last:
+                                end_offset = min(len(chunk_data), end - chunk_start_offset + 1)
+
+                            chunk_data = chunk_data[start_offset:end_offset]
+
                         chunk_count += 1
                         byte_count += len(chunk_data)
 
@@ -366,8 +403,9 @@ class AsyncFileDownload(AsyncRepoBase):
                             status_callback,
                             file_info=file_info,
                             controller=controller,
+                            start=start,
+                            end=end,
                             state=DownloadState.in_progress,
-                            chunk_count=chunk_count,
                             byte_count=byte_count,
                         )
 
@@ -384,18 +422,6 @@ class AsyncFileDownload(AsyncRepoBase):
                                 naturalsize(byte_count / took, binary=True),
                             )
 
-                        if not is_entire_file:
-                            chunk_start_offset = index * UPLOAD_CHUNK_SIZE
-                            start_offset = 0
-                            end_offset = len(chunk_data)
-
-                            if index == first:
-                                start_offset = max(0, start - chunk_start_offset)
-                            if index == last:
-                                end_offset = min(len(chunk_data), end - chunk_start_offset + 1)
-
-                            chunk_data = chunk_data[start_offset:end_offset]
-
                         yield chunk_data
 
             except* asyncio.CancelledError as exc_gr:
@@ -411,8 +437,9 @@ class AsyncFileDownload(AsyncRepoBase):
                     status_callback,
                     file_info=file_info,
                     controller=controller,
+                    start=start,
+                    end=end,
                     state=DownloadState.cancelled,
-                    chunk_count=chunk_count,
                     byte_count=byte_count,
                 )
                 raise DownloadCancelled(msg) from exc_gr
@@ -423,8 +450,9 @@ class AsyncFileDownload(AsyncRepoBase):
                     status_callback,
                     file_info=file_info,
                     controller=controller,
+                    start=start,
+                    end=end,
                     state=DownloadState.failed,
-                    chunk_count=chunk_count,
                     byte_count=byte_count,
                     error=exc_gr,
                 )
@@ -449,8 +477,9 @@ class AsyncFileDownload(AsyncRepoBase):
                     status_callback,
                     file_info=file_info,
                     controller=controller,
+                    start=start,
+                    end=end,
                     state=DownloadState.done,
-                    chunk_count=chunk_count,
                     byte_count=byte_count,
                 )
 
@@ -502,8 +531,9 @@ class AsyncFileDownload(AsyncRepoBase):
         callback: AsyncDownloadStatusCallback | None,
         file_info: FileInfo,
         controller: AsyncFileDownloadController,
+        start: int,
+        end: int,
         state: DownloadState,
-        chunk_count: int = 0,
         byte_count: int = 0,
         error: ExceptionGroup | None = None,
     ) -> None:
@@ -513,8 +543,9 @@ class AsyncFileDownload(AsyncRepoBase):
             status = DownloadStatus(
                 file_info=file_info,
                 controller=controller,
+                start=start,
+                end=end,
                 state=state,
-                chunk_count=chunk_count,
                 byte_count=byte_count,
                 error=error,
             )
