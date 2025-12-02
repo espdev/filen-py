@@ -47,6 +47,7 @@ class DownloadState(StrEnum):
 @dataclass
 class DownloadStatus:
     file_info: FileInfo
+    controller: 'AsyncFileDownloadController'
     state: DownloadState
     chunk_count: int
     byte_count: int
@@ -292,7 +293,9 @@ class AsyncFileDownload(AsyncRepoBase):
         await controller.wait_for_start()
 
         if controller.is_cancelled:
-            await self._on_status(status_callback, file_info=file_info, state=DownloadState.cancelled)
+            await self._on_status(
+                status_callback, file_info=file_info, controller=controller, state=DownloadState.cancelled
+            )
         controller.raise_for_cancellation()
 
         first, last = _calc_chunk_range(start, end, file_info.chunks)
@@ -316,11 +319,13 @@ class AsyncFileDownload(AsyncRepoBase):
             naturalsize(file_info.metadata.size, binary=True),
         )
 
-        await self._on_status(status_callback, file_info=file_info, state=DownloadState.queued)
+        await self._on_status(status_callback, file_info=file_info, controller=controller, state=DownloadState.queued)
 
         async with self._context.async_concurrent_downloads_semaphore:
             if controller.is_cancelled:
-                await self._on_status(status_callback, file_info=file_info, state=DownloadState.cancelled)
+                await self._on_status(
+                    status_callback, file_info=file_info, controller=controller, state=DownloadState.cancelled
+                )
             controller.raise_for_cancellation()
 
             ts = time.monotonic()
@@ -329,7 +334,9 @@ class AsyncFileDownload(AsyncRepoBase):
 
             try:
                 async with self._runner.task_group() as tg:
-                    await self._on_status(status_callback, file_info=file_info, state=DownloadState.started)
+                    await self._on_status(
+                        status_callback, file_info=file_info, controller=controller, state=DownloadState.started
+                    )
 
                     for w_id in range(self._context.download_chunks_concurrency):
                         tg.add_task(w_id, self._worker, file_info, controller, chunk_buffer, w_id)
@@ -339,6 +346,7 @@ class AsyncFileDownload(AsyncRepoBase):
                             await self._on_status(
                                 status_callback,
                                 file_info=file_info,
+                                controller=controller,
                                 state=DownloadState.paused,
                                 chunk_count=chunk_count,
                                 byte_count=byte_count,
@@ -357,6 +365,7 @@ class AsyncFileDownload(AsyncRepoBase):
                         await self._on_status(
                             status_callback,
                             file_info=file_info,
+                            controller=controller,
                             state=DownloadState.in_progress,
                             chunk_count=chunk_count,
                             byte_count=byte_count,
@@ -401,6 +410,7 @@ class AsyncFileDownload(AsyncRepoBase):
                 await self._on_status(
                     status_callback,
                     file_info=file_info,
+                    controller=controller,
                     state=DownloadState.cancelled,
                     chunk_count=chunk_count,
                     byte_count=byte_count,
@@ -412,6 +422,7 @@ class AsyncFileDownload(AsyncRepoBase):
                 await self._on_status(
                     status_callback,
                     file_info=file_info,
+                    controller=controller,
                     state=DownloadState.failed,
                     chunk_count=chunk_count,
                     byte_count=byte_count,
@@ -437,6 +448,7 @@ class AsyncFileDownload(AsyncRepoBase):
                 await self._on_status(
                     status_callback,
                     file_info=file_info,
+                    controller=controller,
                     state=DownloadState.done,
                     chunk_count=chunk_count,
                     byte_count=byte_count,
@@ -489,6 +501,7 @@ class AsyncFileDownload(AsyncRepoBase):
     async def _on_status(
         callback: AsyncDownloadStatusCallback | None,
         file_info: FileInfo,
+        controller: AsyncFileDownloadController,
         state: DownloadState,
         chunk_count: int = 0,
         byte_count: int = 0,
@@ -499,6 +512,7 @@ class AsyncFileDownload(AsyncRepoBase):
         try:
             status = DownloadStatus(
                 file_info=file_info,
+                controller=controller,
                 state=state,
                 chunk_count=chunk_count,
                 byte_count=byte_count,

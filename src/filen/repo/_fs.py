@@ -5,6 +5,7 @@ import re
 from uuid import UUID
 
 from anyio import open_file
+from humanize import naturalsize
 
 from filen._logging import logger
 from filen.errors import StorageError
@@ -549,7 +550,9 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
         self,
         src_path: str,
         dst_path: LocalPath,
+        *,
         ensure_folder: bool = True,
+        resume_download: bool = False,
         status_callback: AsyncDownloadStatusCallback | None = None,
     ) -> None:
         """Download a file or folder from the storage to local folder"""
@@ -564,21 +567,17 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
             else:
                 raise OSError(f'Destination folder {dst_path} does not exist.')
 
-        async def download_file(fi: FileInfo, file_path: Path) -> None:
-            try:
-                async with await open_file(file_path, 'wb') as fp:
-                    async for chunk in self._storage.download.stream(fi, status_callback=status_callback):
-                        await fp.write(chunk)
-                logger.debug("File %r downloaded to '%s'", src_path, file_path)
-            except Exception:
-                file_path.unlink(missing_ok=True)
-                raise
-
         match exists.type:
             case StorageItemType.file:
                 file_info = await self._storage.file_info(exists.uuid)
                 local_file_path = dst_path / file_info.metadata.name
-                await download_file(file_info, local_file_path)
+                await self._download_file(
+                    file_info,
+                    local_file_path,
+                    resume_download=resume_download,
+                    status_callback=status_callback,
+                )
+                logger.debug("File %r downloaded to '%s'", src_path, local_file_path)
 
             case StorageItemType.folder:
                 # folder_content = await self._storage.folder_download(exists.uuid)
@@ -666,3 +665,40 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
                 file_uuid=link_status.item_uuid,
                 action='disable',
             )
+
+    async def _download_file(
+        self,
+        file_info: FileInfo,
+        local_file_path: Path,
+        *,
+        resume_download: bool = False,
+        status_callback: AsyncDownloadStatusCallback | None = None,
+    ) -> None:
+        local_file_path_tmp = local_file_path.with_suffix(f'{local_file_path.suffix}.part')
+        if resume_download and local_file_path_tmp.exists():
+            mode = 'ab'
+            stat = local_file_path_tmp.stat()
+            start = stat.st_size
+            logger.debug(
+                "Resuming file %r download to '%s' from %s",
+                file_info.metadata.name,
+                local_file_path,
+                naturalsize(stat.st_size, binary=True),
+            )
+        else:
+            mode = 'wb'
+            start = None
+        try:
+            async with await open_file(local_file_path_tmp, mode=mode) as fp:
+                async for chunk in self._storage.download.stream(
+                    file_info,
+                    start=start,
+                    status_callback=status_callback,
+                ):
+                    await fp.write(chunk)
+        except Exception:
+            if not resume_download:
+                local_file_path_tmp.unlink(missing_ok=True)
+            raise
+        else:
+            local_file_path_tmp.rename(local_file_path)
