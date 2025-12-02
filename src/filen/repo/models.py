@@ -62,6 +62,8 @@ class FileMetadata(BaseModel):
     size: int
     mime: str
     key: str
+    hash: str
+    created: Annotated[int, Field(validation_alias=AliasChoices('created', 'creation'))]
     last_modified: Annotated[int, Field(validation_alias=AliasChoices('lastModified', 'last_modified'))]
 
 
