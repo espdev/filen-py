@@ -714,14 +714,14 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
                     await fp.write(chunk)
                     if verify_hash:
                         file_hasher.update(chunk)
-
-            if verify_hash:
-                if file_info.metadata.hash != file_hasher.hexdigest():
-                    local_file_path_tmp.unlink(missing_ok=True)
-                    raise DownloadError(f"The file hash verification failed for downloaded file '{local_file_path}'.")
         except Exception:
             if not resume_download:
                 local_file_path_tmp.unlink(missing_ok=True)
             raise
-        else:
-            local_file_path_tmp.rename(local_file_path)
+
+        if verify_hash:
+            if file_info.metadata.hash != file_hasher.hexdigest():
+                local_file_path_tmp.unlink(missing_ok=True)
+                raise DownloadError(f"The file hash verification failed for downloaded file '{local_file_path}'.")
+
+        local_file_path_tmp.rename(local_file_path)
