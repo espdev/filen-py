@@ -4,7 +4,7 @@ from cryptography.hazmat.primitives import serialization
 from pydantic import BaseModel
 import pytest
 
-from filen.config import AuthVersion, MetadataEncryptionVersion
+from filen.config import AuthVersion, FileEncryptionVersion, MetadataEncryptionVersion
 from filen.crypto import (
     create_der_keypair,
     current_metadata_cipher,
@@ -19,6 +19,8 @@ from filen.crypto import (
     encrypt_metadata,
     encrypt_metadata_model,
     generate_private_key,
+    generate_random_hex_string,
+    generate_random_string,
     hash_name,
     keypair_der_to_pem,
     metadata_ciphers,
@@ -149,33 +151,43 @@ def test_decrypt_metadata_encryption_version_error():
         _ = decrypt_metadata(metadata_e, [key1, key2])
 
 
-def test_encrypt_decrypt_content():
-    data = token_bytes(1024)
-    key = '485cfd4b2c99fb2cb7bd2c288158811b'
+@pytest.mark.parametrize(
+    'data, key, version',
+    [
+        (token_bytes(1024), generate_random_string(32), FileEncryptionVersion.v2),
+        (token_bytes(1024), generate_random_hex_string(32), FileEncryptionVersion.v3),
+    ],
+)
+def test_encrypt_decrypt_content(data, key, version):
+    assert decrypt_content(encrypt_content(data, key, version), key, version) == data
 
-    assert decrypt_content(encrypt_content(data, key), key) == data
 
-
-def test_encrypt_content_error():
-    data = token_bytes(1024)
-    key = 'd899ab9d9032c49ff39428964607db67225e338612059776447715d37586eba3'
-
+@pytest.mark.parametrize(
+    'data, key, version',
+    [
+        (token_bytes(1024), generate_random_string(64), FileEncryptionVersion.v2),
+        (token_bytes(1024), generate_random_string(32), FileEncryptionVersion.v3),
+        (token_bytes(1024), generate_random_hex_string(64), FileEncryptionVersion.v3),
+    ],
+)
+def test_encrypt_content_error(data, key, version):
     with pytest.raises(ContentEncryptError):
-        _ = encrypt_content(data, key)
+        _ = encrypt_content(data, key, version)
 
 
-def test_decrypt_content_error():
-    data = token_bytes(1024)
-    key = 'd899ab9d9032c49ff39428964607db67225e338612059776447715d37586eba3'
-
+@pytest.mark.parametrize(
+    'data, key, version',
+    [
+        (token_bytes(1024), generate_random_string(64), FileEncryptionVersion.v2),
+        (token_bytes(10), generate_random_string(32), FileEncryptionVersion.v2),
+        (token_bytes(1024), generate_random_string(32), FileEncryptionVersion.v3),
+        (token_bytes(1024), generate_random_hex_string(64), FileEncryptionVersion.v3),
+        (token_bytes(10), generate_random_hex_string(32), FileEncryptionVersion.v3),
+    ],
+)
+def test_decrypt_content_error(data, key, version):
     with pytest.raises(ContentDecryptError):
-        _ = decrypt_content(data, key)
-
-    data = token_bytes(10)
-    key = '485cfd4b2c99fb2cb7bd2c288158811b'
-
-    with pytest.raises(ContentDecryptError):
-        _ = decrypt_content(data, key)
+        _ = decrypt_content(data, key, version)
 
 
 def test_keypair_der_to_pem():
