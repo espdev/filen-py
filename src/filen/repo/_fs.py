@@ -688,32 +688,40 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
         file_hasher = file_sha512_hasher()
 
         if resume_download and local_file_path_tmp.exists():
-            mode = 'ab'
             stat = local_file_path_tmp.stat()
             start = stat.st_size
-            logger.debug(
-                "Resuming file %r download to '%s' from %s",
-                file_info.metadata.name,
-                local_file_path,
-                naturalsize(stat.st_size, binary=True),
-            )
-            if verify_hash:
-                async with await open_file(local_file_path_tmp, 'rb') as fp:
-                    while chunk := await fp.read(READ_CHUNK):
-                        file_hasher.update(chunk)
+            if start > file_info.metadata.size:
+                mode = 'wb'
+                start = None
+                logger.debug("The file %r has been changed, can't resume downloading.", file_info.metadata.name)
+            else:
+                mode = 'ab'
+                logger.debug(
+                    "Resuming file %r download to '%s' from %s",
+                    file_info.metadata.name,
+                    local_file_path,
+                    naturalsize(stat.st_size, binary=True),
+                )
         else:
             mode = 'wb'
             start = None
+
+        if start and verify_hash:
+            async with await open_file(local_file_path_tmp, 'rb') as fp:
+                while chunk := await fp.read(READ_CHUNK):
+                    file_hasher.update(chunk)
+
         try:
-            async with await open_file(local_file_path_tmp, mode) as fp:
-                async for chunk in self._storage.download.stream(
-                    file_info,
-                    start=start,
-                    status_callback=status_callback,
-                ):
-                    await fp.write(chunk)
-                    if verify_hash:
-                        file_hasher.update(chunk)
+            if start is None or start < file_info.metadata.size:
+                async with await open_file(local_file_path_tmp, mode) as fp:
+                    async for chunk in self._storage.download.stream(
+                        file_info,
+                        start=start,
+                        status_callback=status_callback,
+                    ):
+                        await fp.write(chunk)
+                        if verify_hash:
+                            file_hasher.update(chunk)
         except Exception:
             if not resume_download:
                 local_file_path_tmp.unlink(missing_ok=True)
@@ -724,4 +732,5 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
                 local_file_path_tmp.unlink(missing_ok=True)
                 raise DownloadError(f"The file hash verification failed for downloaded file '{local_file_path}'.")
 
+        local_file_path.unlink(missing_ok=True)
         local_file_path_tmp.rename(local_file_path)
