@@ -554,7 +554,7 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
         dst_path: LocalPath,
         *,
         resume_download: bool = False,
-        verify_hash: bool = False,
+        verify_hash: bool = True,
         status_callback: AsyncDownloadStatusCallback | None = None,
     ) -> None:
         """Download a file or folder from the storage to local folder"""
@@ -683,11 +683,6 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
         verify_hash: bool = False,
         status_callback: AsyncDownloadStatusCallback | None = None,
     ) -> None:
-        if verify_hash and not file_info.metadata.hash:
-            raise DownloadError(
-                "Can't verify the file hash. FileInfo does not contain information about the file hash!"
-            )
-
         local_file_path_tmp = local_file_path.with_suffix(f'{local_file_path.suffix}.part')
 
         if resume_download and local_file_path_tmp.exists():
@@ -723,7 +718,7 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
                 local_file_path_tmp.unlink(missing_ok=True)
             raise
 
-        if verify_hash:
+        if verify_hash and file_info.metadata.hash:
             file_hash = await self._runner.run_sync(hash_file, local_file_path_tmp)
             if file_hash != file_info.metadata.hash:
                 local_file_path_tmp.unlink(missing_ok=True)
