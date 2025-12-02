@@ -1,7 +1,8 @@
 from typing import Final, NamedTuple
 from base64 import b64decode
-from hashlib import sha1, sha256, sha512
+from hashlib import file_digest, sha1, sha256, sha512
 import hmac
+from pathlib import Path
 
 from cryptography.hazmat.primitives.hashes import SHA256
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
@@ -12,8 +13,6 @@ from ._base import backend, create_pbkdf2hmac_sha512
 from ._utils import generate_random_string
 
 HMAC_KEY_LENGTH: Final = 32
-
-file_sha512_hasher = sha512
 
 
 def derive_hmac_sha256_key(private_key: str) -> bytes:
@@ -59,6 +58,11 @@ def hash_name(name: str, auth_version: AuthVersion | int, hmac_key: bytes | None
 
         case _:
             raise NotImplementedError(f'Hashing names is not implemented for auth version {auth_version.value}')
+
+
+def hash_file(file_path: Path) -> str:
+    with file_path.open('rb') as fp:
+        return file_digest(fp, 'sha512').hexdigest()
 
 
 class HashedPasswordAndSalt(NamedTuple):

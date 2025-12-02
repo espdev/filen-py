@@ -8,7 +8,7 @@ from anyio import open_file
 from humanize import naturalsize
 
 from filen._logging import logger
-from filen.crypto import file_sha512_hasher
+from filen.crypto import hash_file
 from filen.errors import DownloadError, StorageError
 
 from ._base import AsyncRepoBase, RepoBase, repo
@@ -685,7 +685,6 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
             )
 
         local_file_path_tmp = local_file_path.with_suffix(f'{local_file_path.suffix}.part')
-        file_hasher = file_sha512_hasher()
 
         if resume_download and local_file_path_tmp.exists():
             stat = local_file_path_tmp.stat()
@@ -706,11 +705,6 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
             mode = 'wb'
             start = None
 
-        if start and verify_hash:
-            async with await open_file(local_file_path_tmp, 'rb') as fp:
-                while chunk := await fp.read(READ_CHUNK):
-                    file_hasher.update(chunk)
-
         try:
             if start is None or start < file_info.metadata.size:
                 async with await open_file(local_file_path_tmp, mode) as fp:
@@ -720,15 +714,14 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
                         status_callback=status_callback,
                     ):
                         await fp.write(chunk)
-                        if verify_hash:
-                            file_hasher.update(chunk)
         except Exception:
             if not resume_download:
                 local_file_path_tmp.unlink(missing_ok=True)
             raise
 
         if verify_hash:
-            if file_info.metadata.hash != file_hasher.hexdigest():
+            file_hash = await self._runner.run_sync(hash_file, local_file_path_tmp)
+            if file_hash != file_info.metadata.hash:
                 local_file_path_tmp.unlink(missing_ok=True)
                 raise DownloadError(f"The file hash verification failed for downloaded file '{local_file_path}'.")
 
