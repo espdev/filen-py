@@ -2,6 +2,7 @@ from ._content import decrypt_content, encrypt_content
 from ._hash import (
     combined_sha_hash_func,
     derive_hmac_sha256_key,
+    file_sha512_hasher,
     hash_name,
     hash_public_link_password,
     hmac_sha256_hash_func,
@@ -46,6 +47,7 @@ __all__ = [
     'keypair_der_to_pem',
     'hash_name',
     'hash_public_link_password',
+    'file_sha512_hasher',
     'combined_sha_hash_func',
     'hmac_sha256_hash_func',
     'derive_hmac_sha256_key',

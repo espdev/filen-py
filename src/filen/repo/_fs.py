@@ -8,7 +8,8 @@ from anyio import open_file
 from humanize import naturalsize
 
 from filen._logging import logger
-from filen.errors import StorageError
+from filen.crypto import file_sha512_hasher
+from filen.errors import DownloadError, StorageError
 
 from ._base import AsyncRepoBase, RepoBase, repo
 from ._download import AsyncDownloadStatusCallback
@@ -28,6 +29,7 @@ from .models import (
 )
 
 TRASH_PATH: Final = '<trash>'
+READ_CHUNK: Final = 4 * 1024 * 1024
 
 type Tree = list[FolderTreeItem]
 type LocalPath = str | Path | PathLike
@@ -553,6 +555,7 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
         *,
         ensure_folder: bool = True,
         resume_download: bool = False,
+        verify_hash: bool = False,
         status_callback: AsyncDownloadStatusCallback | None = None,
     ) -> None:
         """Download a file or folder from the storage to local folder"""
@@ -575,6 +578,7 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
                     file_info,
                     local_file_path,
                     resume_download=resume_download,
+                    verify_hash=verify_hash,
                     status_callback=status_callback,
                 )
                 logger.debug("File %r downloaded to '%s'", src_path, local_file_path)
@@ -672,9 +676,17 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
         local_file_path: Path,
         *,
         resume_download: bool = False,
+        verify_hash: bool = False,
         status_callback: AsyncDownloadStatusCallback | None = None,
     ) -> None:
+        if verify_hash and not file_info.metadata.hash:
+            raise DownloadError(
+                "Can't verify the file hash. FileInfo does not contain information about the file hash!"
+            )
+
         local_file_path_tmp = local_file_path.with_suffix(f'{local_file_path.suffix}.part')
+        file_hasher = file_sha512_hasher()
+
         if resume_download and local_file_path_tmp.exists():
             mode = 'ab'
             stat = local_file_path_tmp.stat()
@@ -685,17 +697,28 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
                 local_file_path,
                 naturalsize(stat.st_size, binary=True),
             )
+            if verify_hash:
+                async with await open_file(local_file_path_tmp, 'rb') as fp:
+                    while chunk := await fp.read(READ_CHUNK):
+                        file_hasher.update(chunk)
         else:
             mode = 'wb'
             start = None
         try:
-            async with await open_file(local_file_path_tmp, mode=mode) as fp:
+            async with await open_file(local_file_path_tmp, mode) as fp:
                 async for chunk in self._storage.download.stream(
                     file_info,
                     start=start,
                     status_callback=status_callback,
                 ):
                     await fp.write(chunk)
+                    if verify_hash:
+                        file_hasher.update(chunk)
+
+            if verify_hash:
+                if file_info.metadata.hash != file_hasher.hexdigest():
+                    local_file_path_tmp.unlink(missing_ok=True)
+                    raise DownloadError(f"The file hash verification failed for downloaded file '{local_file_path}'.")
         except Exception:
             if not resume_download:
                 local_file_path_tmp.unlink(missing_ok=True)

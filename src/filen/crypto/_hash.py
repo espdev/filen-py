@@ -13,6 +13,8 @@ from ._utils import generate_random_string
 
 HMAC_KEY_LENGTH: Final = 32
 
+file_sha512_hasher = sha512
+
 
 def derive_hmac_sha256_key(private_key: str) -> bytes:
     """Derive hmac SHA-256 key from a user private key for using in hmac hash fucntion"""
