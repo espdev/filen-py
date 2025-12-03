@@ -2,7 +2,7 @@ from typing import Final, NamedTuple
 from base64 import b64decode
 from hashlib import file_digest, sha1, sha256, sha512
 import hmac
-from pathlib import Path
+from os import PathLike
 
 from cryptography.hazmat.primitives.hashes import SHA256
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
@@ -60,8 +60,8 @@ def hash_name(name: str, auth_version: AuthVersion | int, hmac_key: bytes | None
             raise NotImplementedError(f'Hashing names is not implemented for auth version {auth_version.value}')
 
 
-def hash_file(file_path: Path) -> str:
-    with file_path.open('rb') as fp:
+def hash_file(file_path: PathLike) -> str:
+    with open(file_path, 'rb') as fp:
         return file_digest(fp, 'sha512').hexdigest()
 
 
