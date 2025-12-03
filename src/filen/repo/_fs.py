@@ -2,10 +2,12 @@ from typing import Final
 from os import PathLike
 from pathlib import Path
 import re
+import time
 from uuid import UUID
 
-from anyio import open_file
-from humanize import naturalsize
+import anyio
+from anyio.abc import ObjectReceiveStream
+from humanize import naturaldelta, naturalsize
 
 from filen._logging import logger
 from filen.crypto import hash_file
@@ -561,16 +563,17 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
 
         exists = await self.exists(src_path)
         self._check_path(src_path, exists)
+        src_path = self._normalize_path(src_path)
 
-        dst_path = Path(dst_path).expanduser().absolute()
+        dst_path = await (await anyio.Path(dst_path).expanduser()).absolute()
 
         match exists.type:
             case StorageItemType.file:
                 file_info = await self._storage.file_info(exists.uuid)
 
-                if dst_path.is_dir():
+                if await dst_path.is_dir():
                     local_file_path = dst_path / file_info.metadata.name
-                elif not dst_path.parent.is_dir():
+                elif not await dst_path.parent.is_dir():
                     raise OSError(f'Destination folder {dst_path.parent} does not exist.')
                 else:
                     local_file_path = dst_path
@@ -588,9 +591,14 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
                 logger.debug("%r file downloaded to '%s'", src_path, local_file_path)
 
             case StorageItemType.folder:
-                # folder_content = await self._storage.folder_download(exists.uuid)
-                # tree = self._walk_folder_tree(src_path, exists.uuid, folder_content, detail=True, internal=True)
-                raise NotImplementedError
+                await self._download_folder(
+                    src_path,
+                    dst_path,
+                    exists.uuid,
+                    resume_download=resume_download,
+                    verify_hash=verify_hash,
+                    status_callback=status_callback,
+                )
 
     async def link(self, path: str, detail: bool = False) -> str | PublicLinkStatus | None:
         """Get a public link status for the file/folder"""
@@ -677,16 +685,28 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
     async def _download_file(
         self,
         file_info: FileInfo,
-        local_file_path: Path,
+        local_file_path: anyio.Path,
         *,
         resume_download: bool = False,
         verify_hash: bool = False,
         status_callback: AsyncDownloadStatusCallback | None = None,
     ) -> None:
+        if await local_file_path.exists():
+            if file_info.metadata.hash:
+                file_hash = await self._runner.run_sync(hash_file, local_file_path)
+                if file_hash == file_info.metadata.hash:
+                    logger.debug("'%s' file already exists", local_file_path)
+                    return
+            else:
+                stat = await local_file_path.stat()
+                if stat.st_size == file_info.metadata.size:
+                    logger.debug("'%s' file with the same size already exists", local_file_path)
+                    return
+
         local_file_path_tmp = local_file_path.with_suffix(f'{local_file_path.suffix}.part')
 
-        if resume_download and local_file_path_tmp.exists():
-            stat = local_file_path_tmp.stat()
+        if resume_download and (await local_file_path_tmp.exists()):
+            stat = await local_file_path_tmp.stat()
             start = stat.st_size
             if start > file_info.metadata.size:
                 mode = 'wb'
@@ -706,7 +726,7 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
 
         try:
             if start is None or start < file_info.metadata.size:
-                async with await open_file(local_file_path_tmp, mode) as fp:
+                async with await anyio.open_file(local_file_path_tmp, mode) as fp:
                     async for chunk in self._storage.download.stream(
                         file_info,
                         start=start,
@@ -715,14 +735,92 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
                         await fp.write(chunk)
         except Exception:
             if not resume_download:
-                local_file_path_tmp.unlink(missing_ok=True)
+                await local_file_path_tmp.unlink(missing_ok=True)
             raise
 
         if verify_hash and file_info.metadata.hash:
             file_hash = await self._runner.run_sync(hash_file, local_file_path_tmp)
             if file_hash != file_info.metadata.hash:
-                local_file_path_tmp.unlink(missing_ok=True)
+                await local_file_path_tmp.unlink(missing_ok=True)
                 raise DownloadError(f"The file hash verification failed for downloaded file '{local_file_path}'.")
 
-        local_file_path.unlink(missing_ok=True)
-        local_file_path_tmp.rename(local_file_path)
+        await local_file_path.unlink(missing_ok=True)
+        await local_file_path_tmp.rename(local_file_path)
+
+    async def _download_file_worker(
+        self,
+        receive_stream: ObjectReceiveStream,
+        *,
+        resume_download: bool = False,
+        verify_hash: bool = False,
+        status_callback: AsyncDownloadStatusCallback | None = None,
+    ):
+        async with receive_stream:
+            async for f_info, file_path in receive_stream:
+                await self._download_file(
+                    f_info,
+                    file_path,
+                    resume_download=resume_download,
+                    verify_hash=verify_hash,
+                    status_callback=status_callback,
+                )
+
+    async def _download_folder(
+        self,
+        src_path: str,
+        dst_path: anyio.Path,
+        folder_uuid: UUID,
+        *,
+        resume_download: bool = False,
+        verify_hash: bool = True,
+        status_callback: AsyncDownloadStatusCallback | None = None,
+    ) -> None:
+        folder_size = await self._storage.folder_size(folder_uuid)
+
+        logger.debug(
+            "Downloading %r folder to '%s' (%d files, %s) ...",
+            src_path,
+            dst_path,
+            folder_size.files,
+            naturalsize(folder_size.size),
+        )
+
+        folder_content = await self._storage.folder_download(folder_uuid)
+        tree = self._walk_folder_tree(src_path, folder_uuid, folder_content, detail=True, internal=True)
+
+        send_stream, receive_stream = anyio.create_memory_object_stream[tuple[FileInfo, anyio.Path]](
+            max_buffer_size=self._context.async_concurrent_downloads_semaphore.value
+        )
+
+        ts = time.monotonic()
+
+        async with self._runner.task_group() as tg:
+            for i in range(self._context.async_concurrent_downloads_semaphore.value):
+                tg.add_task(
+                    i,
+                    self._download_file_worker,
+                    receive_stream.clone(),
+                    resume_download=resume_download,
+                    verify_hash=verify_hash,
+                    status_callback=status_callback,
+                )
+
+            async with send_stream:
+                for tree_item in tree:
+                    local_folder_path = dst_path / tree_item.path.removeprefix(src_path).lstrip('/')
+                    await local_folder_path.mkdir(parents=True, exist_ok=True)
+
+                    for file_info in tree_item.files:
+                        locl_file_path = local_folder_path / file_info.metadata.name
+                        await send_stream.send((file_info, locl_file_path))
+
+        took = time.monotonic() - ts
+        speed = folder_size.size / took
+
+        logger.debug(
+            "%r folder downloaded to '%s' (%s, %s/s)",
+            src_path,
+            dst_path,
+            naturaldelta(took),
+            naturalsize(speed, binary=True),
+        )
