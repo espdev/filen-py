@@ -559,7 +559,7 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
         verify_hash: bool = True,
         status_callback: AsyncDownloadStatusCallback | None = None,
     ) -> None:
-        """Download a file or folder from the storage to local folder"""
+        """Download a file or folder from the storage to local"""
 
         exists = await self.exists(src_path)
         self._check_path(src_path, exists)
@@ -591,6 +591,9 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
                 logger.debug("%r file downloaded to '%s'", src_path, local_file_path)
 
             case StorageItemType.folder:
+                if await dst_path.is_file():
+                    raise OSError(f"'{dst_path}' must be a folder, not a file.")
+
                 await self._download_folder(
                     src_path,
                     dst_path,
