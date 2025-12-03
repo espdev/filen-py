@@ -458,7 +458,8 @@ class AsyncFileDownload(AsyncRepoBase):
                 )
 
                 raise DownloadError(
-                    f'Downloading file {file_info.metadata.name!r} <{file_info.uuid}> has failed.'
+                    f'Downloading file {file_info.metadata.name!r} <{file_info.uuid}> has failed: '
+                    f'{exc_gr.exceptions[0]}'
                 ) from exc_gr
 
             else:

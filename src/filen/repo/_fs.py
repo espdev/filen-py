@@ -557,6 +557,7 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
         *,
         resume_download: bool = False,
         verify_hash: bool = True,
+        errors_ok: bool = False,
         status_callback: AsyncDownloadStatusCallback | None = None,
     ) -> None:
         """Download a file or folder from the storage to local"""
@@ -600,6 +601,7 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
                     exists.uuid,
                     resume_download=resume_download,
                     verify_hash=verify_hash,
+                    errors_ok=errors_ok,
                     status_callback=status_callback,
                 )
 
@@ -690,9 +692,9 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
         file_info: FileInfo,
         local_file_path: anyio.Path,
         *,
-        resume_download: bool = False,
-        verify_hash: bool = False,
-        status_callback: AsyncDownloadStatusCallback | None = None,
+        resume_download: bool,
+        verify_hash: bool,
+        status_callback: AsyncDownloadStatusCallback | None,
     ) -> None:
         if await local_file_path.exists():
             if file_info.metadata.hash:
@@ -754,19 +756,26 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
         self,
         receive_stream: ObjectReceiveStream,
         *,
-        resume_download: bool = False,
-        verify_hash: bool = False,
-        status_callback: AsyncDownloadStatusCallback | None = None,
+        resume_download: bool,
+        verify_hash: bool,
+        errors_ok: bool,
+        status_callback: AsyncDownloadStatusCallback | None,
     ):
         async with receive_stream:
             async for f_info, file_path in receive_stream:
-                await self._download_file(
-                    f_info,
-                    file_path,
-                    resume_download=resume_download,
-                    verify_hash=verify_hash,
-                    status_callback=status_callback,
-                )
+                try:
+                    await self._download_file(
+                        f_info,
+                        file_path,
+                        resume_download=resume_download,
+                        verify_hash=verify_hash,
+                        status_callback=status_callback,
+                    )
+                except Exception as e:
+                    if errors_ok:
+                        logger.exception("An error occurred while downloading file '%s': %s", file_path, e)
+                    else:
+                        raise
 
     async def _download_folder(
         self,
@@ -774,9 +783,10 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
         dst_path: anyio.Path,
         folder_uuid: UUID,
         *,
-        resume_download: bool = False,
-        verify_hash: bool = True,
-        status_callback: AsyncDownloadStatusCallback | None = None,
+        resume_download: bool,
+        verify_hash: bool,
+        errors_ok: bool,
+        status_callback: AsyncDownloadStatusCallback | None,
     ) -> None:
         folder_size = await self._storage.folder_size(folder_uuid)
 
@@ -805,6 +815,7 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
                     receive_stream.clone(),
                     resume_download=resume_download,
                     verify_hash=verify_hash,
+                    errors_ok=errors_ok,
                     status_callback=status_callback,
                 )
 
