@@ -754,7 +754,7 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
 
     async def _download_file_worker(
         self,
-        receive_stream: ObjectReceiveStream,
+        receive_stream: ObjectReceiveStream[tuple[FileInfo, anyio.Path]],
         *,
         resume_download: bool,
         verify_hash: bool,
