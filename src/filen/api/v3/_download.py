@@ -21,7 +21,7 @@ class FileDownloadAPI(APIBase, FileDownloadMixIn):
         """Download a file encrypted chunk"""
 
         url = self._download_chunk_url(uuid, bucket, region, index)
-        headers = self._ensure_api_key(use_api_key=True, url=url)
+        headers = self._ensure_headers(use_api_key=True, url=url)
 
         with self._request_error_handler:
             with self._http_client.stream('GET', url, headers=headers) as resp:
@@ -36,7 +36,7 @@ class AsyncFileDownloadAPI(AsyncAPIBase, FileDownloadMixIn):
         """Download a file encrypted chunk"""
 
         url = self._download_chunk_url(uuid, bucket, region, index)
-        headers = self._ensure_api_key(use_api_key=True, url=url)
+        headers = self._ensure_headers(use_api_key=True, url=url)
 
         with self._request_error_handler:
             async with self._http_client.stream('GET', url, headers=headers) as resp:

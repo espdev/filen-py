@@ -24,8 +24,8 @@ class APIEndpoint(Enum):
 
 
 class RequestModelBase(BaseModel):
-    def dump_for_payload(self) -> dict[str, Any]:
-        return self.model_dump(by_alias=True, mode='json')
+    def dump_for_payload(self, exclude: set[str] | None = None) -> dict[str, Any]:
+        return self.model_dump(exclude=exclude, by_alias=True, mode='json')
 
 
 class ResponseModelBase(BaseModel, ABC):
@@ -51,7 +51,7 @@ class APIGenericBase[TClient: Client | AsyncClient]:
         base_url = self._context.get_gateway_url().rstrip('/')
         return f'{base_url}{endpoint}'
 
-    def _ensure_api_key(
+    def _ensure_headers(
         self,
         use_api_key: bool,
         url: str,
@@ -97,7 +97,7 @@ class APIBase(APIGenericBase[Client], APIFactoryMixIn):
         use_api_key: bool = True,
     ) -> TResponse:
         url = self._get_api_url(endpoint)
-        headers = self._ensure_api_key(use_api_key, url)
+        headers = self._ensure_headers(use_api_key, url)
 
         with self._request_error_handler:
             debug_log_api_request('post', url, data)
@@ -113,7 +113,7 @@ class APIBase(APIGenericBase[Client], APIFactoryMixIn):
         use_api_key: bool = True,
     ) -> TResponse:
         url = self._get_api_url(endpoint)
-        headers = self._ensure_api_key(use_api_key, url)
+        headers = self._ensure_headers(use_api_key, url)
 
         with self._request_error_handler:
             debug_log_api_request('get', url)
@@ -134,7 +134,7 @@ class AsyncAPIBase(APIGenericBase[AsyncClient], APIFactoryMixIn):
         use_api_key: bool = True,
     ) -> TResponse:
         url = self._get_api_url(endpoint)
-        headers = self._ensure_api_key(use_api_key, url)
+        headers = self._ensure_headers(use_api_key, url)
 
         with self._request_error_handler:
             debug_log_api_request('post', url, data)
@@ -150,7 +150,7 @@ class AsyncAPIBase(APIGenericBase[AsyncClient], APIFactoryMixIn):
         use_api_key: bool = True,
     ) -> TResponse:
         url = self._get_api_url(endpoint)
-        headers = self._ensure_api_key(use_api_key, url)
+        headers = self._ensure_headers(use_api_key, url)
 
         with self._request_error_handler:
             debug_log_api_request('get', url)
