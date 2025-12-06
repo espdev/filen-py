@@ -63,6 +63,9 @@ DOWNLOAD_CHUNKS_CONCURRENCY: Final = 32
 DOWNLOAD_CHUNKS_BACKPRESSURE: Final = 100  # max number of chunks in memory for one file
 MAX_CONCURRENT_DOWNLOADS: Final = 16
 
+UPLOAD_CHUNKS_CONCURRENCY: Final = 16
+MAX_CONCURRENT_UPLOADS: Final = 8
+
 
 class AuthVersion(IntEnum):
     """Authentication versions"""

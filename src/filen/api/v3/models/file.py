@@ -1,7 +1,8 @@
 from typing import Annotated, Literal
+from hashlib import sha512
 from uuid import UUID
 
-from pydantic import Field, computed_field
+from pydantic import BaseModel, Field, computed_field
 
 from filen.config import FileEncryptionVersion
 
@@ -49,6 +50,56 @@ class FileRenameRequestData(RequestData):
     metadata: str
     name: str
     name_hashed: str
+
+
+class FileUploadChunkRequestData(RequestData):
+    uuid: UUID
+    index: int
+    parent: UUID
+    upload_key: str
+    hash: str
+    chunk: bytes
+
+    @property
+    def url_params(self) -> dict[str, str | int]:
+        return self.dump_for_payload(exclude={'chunk'})
+
+    def url_params_hash(self) -> str:
+        json_data = self.model_dump_json(exclude={'chunk'}, by_alias=True)
+        return sha512(json_data.encode()).hexdigest()
+
+
+class FileUploadChunkResponse(BaseModel):
+    bucket: str
+    region: str
+
+
+class FileUploadBase(RequestData):
+    uuid: UUID
+    name: str
+    name_hashed: str
+    mime: str
+    size: int
+    metadata: str
+    version: FileEncryptionVersion
+
+
+class FileUploadDone(FileUploadBase):
+    rm: str
+    chunks: int
+    upload_key: str
+
+
+class FileUploadEmpty(FileUploadBase):
+    parent: UUID
+
+
+class FileUploadStatus(ValidationAliasedModel):
+    chunks: int
+    size: int
+
+
+class FileUploadStatusResponseData(ResponseData[FileUploadStatus]): ...
 
 
 class FilePublicLinkStatusResponseData(ResponseData[PublicLinkStatus]): ...
