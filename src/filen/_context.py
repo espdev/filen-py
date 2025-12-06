@@ -8,9 +8,9 @@ import anyio
 from filen.config import (
     AuthVersion,
     FilenConfig,
-    get_random_filen_egest_url,
-    get_random_filen_gateway_url,
-    get_random_filen_ingest_url,
+    get_randomly_chosen_filen_egest_url,
+    get_randomly_chosen_filen_gateway_url,
+    get_randomly_chosen_filen_ingest_url,
 )
 from filen.errors import InaccessibleKeysError
 
@@ -103,13 +103,13 @@ class Context:
         return self.master_keys[-1]
 
     def get_gateway_url(self) -> str:
-        return self.gateway_url or get_random_filen_gateway_url()
+        return self.gateway_url or get_randomly_chosen_filen_gateway_url()
 
     def get_egest_url(self) -> str:
-        return self.egest_url or get_random_filen_egest_url()
+        return self.egest_url or get_randomly_chosen_filen_egest_url()
 
     def get_ingest_url(self) -> str:
-        return self.ingest_url or get_random_filen_ingest_url()
+        return self.ingest_url or get_randomly_chosen_filen_ingest_url()
 
     def raise_for_inaccessible_keys(self) -> None | NoReturn:
         """Raise InaccessibleKeysError if it is not possible to obtain the user's keys in any way"""

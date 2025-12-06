@@ -144,13 +144,13 @@ class FilenConfig(BaseSettings):
     )
 
 
-def get_random_filen_gateway_url() -> str:
+def get_randomly_chosen_filen_gateway_url() -> str:
     return random.choice(FILEN_GATEWAY_URLS)
 
 
-def get_random_filen_egest_url() -> str:
+def get_randomly_chosen_filen_egest_url() -> str:
     return random.choice(FILEN_EGEST_URLS)
 
 
-def get_random_filen_ingest_url() -> str:
+def get_randomly_chosen_filen_ingest_url() -> str:
     return random.choice(FILEN_INGEST_URLS)
