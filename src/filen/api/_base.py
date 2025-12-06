@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from filen._context import Context
 from filen._helpers import FactoryDescriptor
 from filen._logging import debug_log_api_request, debug_log_api_response
+from filen.config import FILEN_USER_AGENT
 from filen.errors import APIKeyRequiredError, RequestErrorHandler
 
 
@@ -58,6 +59,7 @@ class APIGenericBase[TClient: Client | AsyncClient]:
         headers: dict[str, str] | None = None,
     ) -> dict[str, str]:
         headers = headers or {}
+        headers['User-Agent'] = FILEN_USER_AGENT
         if use_api_key:
             if api_key := self._context.api_key:
                 headers['Authorization'] = f'Bearer {api_key}'
