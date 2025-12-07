@@ -201,6 +201,7 @@ class FileDetail(BaseModel):
     size: int
     chunks: int
     favorited: bool
+    versioned: bool
     trash: bool
     timestamp: datetime
     last_modified: datetime
@@ -222,6 +223,7 @@ class FileDetail(BaseModel):
             size=file_info.metadata.size,
             chunks=file_info.chunks,
             favorited=file_info.favorited,
+            versioned=file_info.versioned,
             trash=file_info.trash,
             timestamp=datetime.fromtimestamp(file_info.timestamp),
             last_modified=datetime.fromtimestamp(file_info.metadata.last_modified / 1000),
