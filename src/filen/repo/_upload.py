@@ -49,6 +49,7 @@ from .models import FileMetadata
 
 type File = IO[bytes] | BinaryIO | anyio.AsyncFile
 type ItemId = UUID | str
+type ChunkItemToUpload = tuple[int, bytes]
 
 
 class UploadInfo(TypedDict):
@@ -56,18 +57,6 @@ class UploadInfo(TypedDict):
     byte_count: int
     bucket: str
     region: str
-
-
-@dataclass(slots=True, frozen=True)
-class ChunkItemToUpload:
-    index: int
-    file_uuid: UUID
-    parent: ItemId
-    key: str
-    upload_key: str
-    chunk: bytes
-    upload_info: UploadInfo
-    upload_info_lock: anyio.Lock
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
@@ -245,9 +234,7 @@ class AsyncFileUpload(AsyncRepoBase):
                 naturalsize(metadata.size, binary=True),
                 num_chunks,
             )
-
             ts = time.monotonic()
-            chunk_count = 0
 
             try:
                 async with self._runner.task_group() as tg:
@@ -261,7 +248,21 @@ class AsyncFileUpload(AsyncRepoBase):
                     )
 
                     for w_id in range(self._context.upload_chunks_concurrency):
-                        tg.add_task(w_id, self._worker, chunk_receive_stream.clone())
+                        tg.add_task(
+                            w_id,
+                            self._worker,
+                            receive_stream=chunk_receive_stream.clone(),
+                            file_uuid=file_uuid,
+                            parent=parent,
+                            upload_key=upload_key,
+                            num_chunks=num_chunks,
+                            metadata=metadata,
+                            upload_info=upload_info,
+                            upload_info_lock=upload_info_lock,
+                            status_callback=status_callback,
+                            controller=controller,
+                            ts=ts,
+                        )
 
                     async with chunk_send_stream:
                         async for index, chunk in self._streaming_chunks(stream):
@@ -283,54 +284,7 @@ class AsyncFileUpload(AsyncRepoBase):
                             if is_calc_file_hash:
                                 await anyio.to_thread.run_sync(file_hasher.update, chunk)
 
-                            await chunk_send_stream.send(
-                                ChunkItemToUpload(
-                                    index=index,
-                                    file_uuid=file_uuid,
-                                    parent=parent,
-                                    key=metadata.key,
-                                    upload_key=upload_key,
-                                    chunk=chunk,
-                                    upload_info=upload_info,
-                                    upload_info_lock=upload_info_lock,
-                                )
-                            )
-
-                            async with upload_info_lock:
-                                last_chunk_count = chunk_count
-                                chunk_count = upload_info['chunk_count']
-                                byte_count = upload_info['byte_count']
-
-                                if chunk_count != last_chunk_count:
-                                    await self._on_status(
-                                        status_callback,
-                                        file_uuid=file_uuid,
-                                        metadata=metadata,
-                                        controller=controller,
-                                        state=DownloadUploadState.in_progress,
-                                        num_chunks=num_chunks,
-                                        chunk_count=chunk_count,
-                                        byte_count=byte_count,
-                                    )
-
-                                if (
-                                    logger.isEnabledFor(logging.DEBUG)
-                                    and chunk_count != last_chunk_count
-                                    and chunk_count % DEBUG_PRINT_INTERVAL == 0
-                                ):
-                                    took = time.monotonic() - ts
-                                    logger.debug(
-                                        'Upload file %r <%s>: %.1f%%, %d/%d chunks, %s, %s/s (%s:%s)',
-                                        metadata.name,
-                                        file_uuid,
-                                        chunk_count / num_chunks * 100,
-                                        chunk_count,
-                                        num_chunks,
-                                        naturalsize(upload_info['byte_count'], binary=True),
-                                        naturalsize(upload_info['byte_count'] / took, binary=True),
-                                        upload_info['bucket'],
-                                        upload_info['region'],
-                                    )
+                            await chunk_send_stream.send((index, chunk))
 
             except* asyncio.CancelledError as exc_gr:
                 await self._on_status(
@@ -424,27 +378,69 @@ class AsyncFileUpload(AsyncRepoBase):
                 break
             index += 1
 
-    async def _worker(self, receive_stream: ObjectReceiveStream[ChunkItemToUpload]):
+    async def _worker(
+        self,
+        receive_stream: ObjectReceiveStream[ChunkItemToUpload],
+        file_uuid: UUID,
+        parent: ItemId,
+        upload_key: str,
+        num_chunks: int,
+        metadata: FileMetadata,
+        upload_info: UploadInfo,
+        upload_info_lock: anyio.Lock,
+        status_callback: AsyncUploadStatusCallback | None,
+        controller: FileDownloadUploadController | AsyncFileDownloadUploadController,
+        ts: float,
+    ):
         async with receive_stream:
-            async for item in receive_stream:
-                chunk_enc = await self._runner.run_sync(encrypt_content, item.chunk, item.key)
+            async for index, chunk in receive_stream:
+                if controller.is_cancelled:
+                    break
+
+                chunk_enc = await self._runner.run_sync(encrypt_content, chunk, metadata.key)
                 chunk_enc_hash = await self._runner.run_sync(hash_data, chunk_enc)
 
                 data = FileUploadChunkRequestData(
-                    uuid=item.file_uuid,
-                    index=item.index,
-                    parent=item.parent,
-                    upload_key=item.upload_key,
+                    uuid=file_uuid,
+                    index=index,
+                    parent=parent,
+                    upload_key=upload_key,
                     hash=chunk_enc_hash,
                     chunk=chunk_enc,
                 )
                 result = (await self._api.v3.file.upload.chunk(data)).data
 
-                async with item.upload_info_lock:
-                    item.upload_info['chunk_count'] += 1
-                    item.upload_info['byte_count'] += len(item.chunk)
-                    item.upload_info['bucket'] = result.bucket
-                    item.upload_info['region'] = result.region
+                async with upload_info_lock:
+                    upload_info['chunk_count'] += 1
+                    upload_info['byte_count'] += len(chunk)
+                    upload_info['bucket'] = result.bucket
+                    upload_info['region'] = result.region
+
+                    await self._on_status(
+                        status_callback,
+                        file_uuid=file_uuid,
+                        metadata=metadata,
+                        controller=controller,
+                        state=DownloadUploadState.in_progress,
+                        num_chunks=num_chunks,
+                        chunk_count=upload_info['chunk_count'],
+                        byte_count=upload_info['byte_count'],
+                    )
+
+                    if logger.isEnabledFor(logging.DEBUG) and upload_info['chunk_count'] % DEBUG_PRINT_INTERVAL == 0:
+                        took = time.monotonic() - ts
+                        logger.debug(
+                            'Upload file %r <%s>: %.1f%%, %d/%d chunks, %s, %s/s (%s:%s)',
+                            metadata.name,
+                            file_uuid,
+                            upload_info['chunk_count'] / num_chunks * 100,
+                            upload_info['chunk_count'],
+                            num_chunks,
+                            naturalsize(upload_info['byte_count'], binary=True),
+                            naturalsize(upload_info['byte_count'] / took, binary=True),
+                            upload_info['bucket'],
+                            upload_info['region'],
+                        )
 
     @staticmethod
     async def _on_status(
