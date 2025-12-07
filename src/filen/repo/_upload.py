@@ -46,7 +46,7 @@ from filen.errors import UploadCancelled, UploadError
 from ._base import AsyncRepoBase, RepoBase, repo
 from ._link import AsyncPublicLink
 from ._lock import AsyncLock, LockResource
-from .models import FileMetadata
+from .models import FileInfo, FileMetadata
 
 type File = IO[bytes] | BinaryIO | anyio.AsyncFile
 type ItemId = UUID | str
@@ -80,7 +80,7 @@ class FileUpload(RepoBase):
         *,
         status_callback: UploadStatusCallback | None = None,
         controller: FileDownloadUploadController | None = None,
-    ) -> UUID:
+    ) -> FileInfo:
         """Upload a file from local filesystem path"""
 
         raise NotImplementedError
@@ -93,7 +93,7 @@ class FileUpload(RepoBase):
         *,
         status_callback: UploadStatusCallback | None = None,
         controller: FileDownloadUploadController | None = None,
-    ) -> UUID:
+    ) -> FileInfo:
         """Upload a file from BinaryIO object and the file metadata"""
 
         raise NotImplementedError
@@ -112,7 +112,7 @@ class AsyncFileUpload(AsyncRepoBase):
         *,
         status_callback: AsyncUploadStatusCallback | None = None,
         controller: AsyncFileDownloadUploadController | None = None,
-    ) -> UUID:
+    ) -> FileInfo:
         """Upload a file from local filesystem path"""
 
         apath = anyio.Path(path)
@@ -144,7 +144,7 @@ class AsyncFileUpload(AsyncRepoBase):
         *,
         status_callback: AsyncUploadStatusCallback | None = None,
         controller: AsyncFileDownloadUploadController | None = None,
-    ) -> UUID:
+    ) -> FileInfo:
         """Upload a file from BinaryIO object and the file metadata"""
 
         if isinstance(file, anyio.AsyncFile):
@@ -164,7 +164,7 @@ class AsyncFileUpload(AsyncRepoBase):
         *,
         status_callback: AsyncUploadStatusCallback | None = None,
         controller: AsyncFileDownloadUploadController | None = None,
-    ) -> UUID:
+    ) -> FileInfo:
         """Upload a file from FileReadStream object and the file metadata"""
 
         master_key = await self._ensure_master_key()
@@ -355,7 +355,22 @@ class AsyncFileUpload(AsyncRepoBase):
                 naturalsize(result.size / took, binary=True),
             )
 
-            # TODO: add the file to folder publink link is needed
+            file_info = FileInfo(
+                uuid=file_uuid,
+                parent=parent,
+                region=upload_info['region'],
+                bucket=upload_info['bucket'],
+                metadata=metadata,
+                name_hashed=done_data.name_hashed,
+                chunks=num_chunks,
+                favorited=False,
+                versioned=False,
+                trash=False,
+                version=FILE_ENCRYPTION_VERSION,
+                timestamp=result.timestamp,
+            )
+
+            await self._add_uploaded_file_to_folder_public_link(file_info)
 
             await self._on_status(
                 status_callback,
@@ -368,7 +383,7 @@ class AsyncFileUpload(AsyncRepoBase):
                 byte_count=upload_info['byte_count'],
             )
 
-        return file_uuid
+        return file_info
 
     @staticmethod
     async def _streaming_chunks(stream: FileReadStream) -> AsyncIterator[tuple[int, bytes]]:
@@ -443,6 +458,29 @@ class AsyncFileUpload(AsyncRepoBase):
                             upload_info['bucket'],
                             upload_info['region'],
                         )
+
+    async def _add_uploaded_file_to_folder_public_link(self, file_info: FileInfo):
+        folder_linked = await self._public_link.folder_public_linked(file_info.parent)
+        if not folder_linked.exists:
+            return
+
+        logger.debug(
+            'Add uploaded file %r <%s> to %d folder public link(s)',
+            file_info.metadata.name,
+            file_info.uuid,
+            len(folder_linked.links),
+        )
+
+        async with self._runner.task_group() as tg:
+            for link_info in folder_linked.links:
+                tg.add_task(
+                    None,
+                    self._public_link.add_item_to_directory_public_link,
+                    file_info,
+                    link_info.link_uuid,
+                    link_info.link_key,
+                    link_info.link_key_encrypted,
+                )
 
     @staticmethod
     async def _on_status(

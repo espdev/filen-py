@@ -195,3 +195,16 @@ class FolderPublicLinkEditRequestData(RequestData):
     @computed_field
     def password(self) -> Literal['empty', 'notempty']:
         return 'notempty' if self.has_password else 'empty'
+
+
+class FolderLinkInfo(ValidationAliasedModel):
+    link_uuid: Annotated[UUID, Field(validation_alias='linkUUID')]
+    link_key: str
+
+
+class FolderLinked(ValidationAliasedModel):
+    exists: Annotated[bool, Field(validation_alias='link')]
+    links: list[FolderLinkInfo]
+
+
+class FolderLinkedResponseData(ResponseData[FolderLinked]): ...

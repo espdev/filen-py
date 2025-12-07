@@ -280,7 +280,7 @@ class PublicLinkStatus(BaseModel):
     item_uuid: UUID | None = None
     size: int | None = None
     key: str | None = None
-    link: str | None = None
+    url: str | None = None
     expiration: int | None = None
     expiration_text: PublicLinkExpiration | None = None
     download_btn: bool | None = None
@@ -292,3 +292,15 @@ class PublicLinkStatus(BaseModel):
 
     def __bool__(self) -> bool:
         return self.exists
+
+
+class FolderLinkInfo(BaseModel):
+    link_uuid: UUID
+    link_key: str
+    link_key_encrypted: str
+    link_url: str
+
+
+class FolderLinked(BaseModel):
+    exists: bool
+    links: list[FolderLinkInfo]

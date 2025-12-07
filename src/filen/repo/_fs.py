@@ -325,7 +325,7 @@ class FS(RepoBase, FSMixIn):
             return PublicLinkStatus.not_exist() if detail else None
 
         link_status = self._storage.public_link_status(exists.uuid, exists.type)
-        return link_status if detail else link_status.link
+        return link_status if detail else link_status.url
 
     def mklink(
         self,
@@ -622,8 +622,7 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
         self._check_path(dst_path, exists, raise_for_file=True)
 
         if await src_path.is_file():
-            file_uuid = await self._storage.upload.from_path(src_path, exists.uuid, status_callback=status_callback)
-            file_info = await self._storage.file_info(file_uuid)
+            file_info = await self._storage.upload.from_path(src_path, exists.uuid, status_callback=status_callback)
             return FileDetail.from_info(dst_path, file_info)
 
         elif await src_path.is_dir():
@@ -640,7 +639,7 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
             return PublicLinkStatus.not_exist() if detail else None
 
         link_status = await self._storage.public_link_status(exists.uuid, exists.type)
-        return link_status if detail else link_status.link
+        return link_status if detail else link_status.url
 
     async def mklink(
         self,
