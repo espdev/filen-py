@@ -262,6 +262,9 @@ class FolderSizeInfo(BaseModel):
     files: int
 
 
+class FolderDetailWithSizeInfo(FolderDetail, FolderSizeInfo): ...
+
+
 class FolderTreeItem(NamedTuple):
     path: str
     folders: list[str | FolderDetail | FolderInfo]

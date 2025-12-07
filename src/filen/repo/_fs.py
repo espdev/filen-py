@@ -16,11 +16,13 @@ from filen.errors import DownloadError, StorageError
 from ._base import AsyncRepoBase, RepoBase, repo
 from ._download import AsyncDownloadStatusCallback
 from ._storage import AsyncStorage, Storage
+from ._upload import AsyncUploadStatusCallback
 from .models import (
     FileDetail,
     FileInfo,
     FolderContent,
     FolderDetail,
+    FolderDetailWithSizeInfo,
     FolderSizeInfo,
     FolderTreeItem,
     PublicLinkExpiration,
@@ -604,6 +606,31 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
                     errors_ok=errors_ok,
                     status_callback=status_callback,
                 )
+
+    async def upload(
+        self,
+        src_path: LocalPath,
+        dst_path: str,
+        *,
+        errors_ok: bool = False,
+        status_callback: AsyncUploadStatusCallback | None = None,
+    ) -> FileDetail | FolderDetailWithSizeInfo:
+        """Upload a file or folder from the local filesystem to the storage"""
+
+        src_path = await (await anyio.Path(src_path).expanduser()).absolute()
+        exists = await self.exists(dst_path)
+        self._check_path(dst_path, exists, raise_for_file=True)
+
+        if await src_path.is_file():
+            file_uuid = await self._storage.upload.from_path(src_path, exists.uuid, status_callback=status_callback)
+            file_info = await self._storage.file_info(file_uuid)
+            return FileDetail.from_info(dst_path, file_info)
+
+        elif await src_path.is_dir():
+            raise NotImplementedError
+
+        else:
+            raise OSError(f'Source path {src_path} does not exist.')
 
     async def link(self, path: str, detail: bool = False) -> str | PublicLinkStatus | None:
         """Get a public link status for the file/folder"""
