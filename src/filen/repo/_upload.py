@@ -135,8 +135,8 @@ class AsyncFileUpload(AsyncRepoBase):
             mime=mime,
             key='',
             hash=hash_file(apath),
-            created=stat.st_ctime_ns,
-            last_modified=stat.st_mtime_ns,
+            created=round(stat.st_ctime_ns / 1e6),
+            last_modified=round(stat.st_mtime_ns / 1e6),
         )
 
         async with await anyio.open_file(apath, 'rb') as file:
@@ -394,6 +394,8 @@ class AsyncFileUpload(AsyncRepoBase):
                 naturalsize(result.size, binary=True),
                 naturalsize(result.size / took, binary=True),
             )
+
+            # TODO: add the file to folder publink link is needed
 
             await self._on_status(
                 status_callback,
