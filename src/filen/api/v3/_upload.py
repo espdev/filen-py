@@ -4,7 +4,7 @@ from .._base import APIBase, AsyncAPIBase
 from ._base import APIv3Endpoint
 from .models.file import (
     FileUploadChunkRequestData,
-    FileUploadChunkResponse,
+    FileUploadChunkResultResponseData,
     FileUploadDone,
     FileUploadEmpty,
     FileUploadStatusResponseData,
@@ -28,7 +28,7 @@ class FileUploadMixIn:
 class FileUploadAPI(APIBase, FileUploadMixIn):
     """API for uploading files from the storage"""
 
-    def chunk(self, data: FileUploadChunkRequestData) -> FileUploadChunkResponse:
+    def chunk(self, data: FileUploadChunkRequestData) -> FileUploadChunkResultResponseData:
         """Upload a file chunk to the storage"""
 
         url = self._upload_chunk_url()
@@ -43,8 +43,7 @@ class FileUploadAPI(APIBase, FileUploadMixIn):
                 headers=headers,
                 params=data.url_params,
             )
-            resp.raise_for_status()
-            return FileUploadChunkResponse.model_validate(resp.json())
+            return FileUploadChunkResultResponseData.from_response(resp)
 
     def done(self, data: FileUploadDone) -> FileUploadStatusResponseData:
         return self._post(UploadEndpoint.upload_done, data, FileUploadStatusResponseData)
@@ -56,7 +55,7 @@ class FileUploadAPI(APIBase, FileUploadMixIn):
 class AsyncFileUploadAPI(AsyncAPIBase, FileUploadMixIn):
     """Async API for uploading files from the storage"""
 
-    async def chunk(self, data: FileUploadChunkRequestData) -> FileUploadChunkResponse:
+    async def chunk(self, data: FileUploadChunkRequestData) -> FileUploadChunkResultResponseData:
         """Upload a file chunk to the storage"""
 
         url = self._upload_chunk_url()
@@ -71,8 +70,7 @@ class AsyncFileUploadAPI(AsyncAPIBase, FileUploadMixIn):
                 headers=headers,
                 params=data.url_params,
             )
-            resp.raise_for_status()
-            return FileUploadChunkResponse.model_validate(resp.json())
+            return FileUploadChunkResultResponseData.from_response(resp)
 
     async def done(self, data: FileUploadDone) -> FileUploadStatusResponseData:
         """Marks an upload as completed"""

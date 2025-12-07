@@ -2,7 +2,7 @@ from typing import Annotated, Literal
 from hashlib import sha512
 from uuid import UUID
 
-from pydantic import BaseModel, Field, computed_field
+from pydantic import Field, computed_field
 
 from filen.config import FileEncryptionVersion
 
@@ -69,9 +69,12 @@ class FileUploadChunkRequestData(RequestData):
         return sha512(json_data.encode()).hexdigest()
 
 
-class FileUploadChunkResponse(BaseModel):
+class FileUploadChunkResult(ValidationAliasedModel):
     bucket: str
     region: str
+
+
+class FileUploadChunkResultResponseData(ResponseData[FileUploadChunkResult]): ...
 
 
 class FileUploadBase(RequestData):
@@ -79,7 +82,7 @@ class FileUploadBase(RequestData):
     name: str
     name_hashed: str
     mime: str
-    size: int
+    size: str
     metadata: str
     version: FileEncryptionVersion
 
