@@ -7,12 +7,10 @@ from uuid import UUID, uuid4
 from filen._context import Context
 from filen.api.v3.models import StorageItemExistsRequestData, StorageItemUUIDRequestData
 from filen.api.v3.models.dir import (
-    BASE_PARENT,
     FolderContentRequestData,
     FolderContentType,
     FolderCreateRequestData,
     FolderMoveRequestData,
-    FolderPublicLinkAddRequestData,
     FolderPublicLinkEditRequestData,
     FolderPublicLinkSizeRequestData,
     FolderRenameRequestData,
@@ -34,6 +32,7 @@ from filen.errors import StorageError
 
 from ._base import AsyncRepoBase, RepoBase, repo
 from ._download import AsyncFileDownload, FileDownload
+from ._link import AsyncPublicLink, PublicLink
 from ._lock import AsyncLock, Lock, LockResource
 from ._upload import AsyncFileUpload, FileUpload
 from .models import (
@@ -147,6 +146,7 @@ class Storage(RepoBase, StorageMixIn):
     upload: FileUpload = repo(FileUpload)
 
     _drive_write_lock: Lock = repo(Lock, resource=LockResource.drive_write)
+    _public_link: PublicLink = repo(PublicLink)
 
     def base_folder(self) -> UUID:
         """Retrieve the base foder UUID (root srorage UUID)"""
@@ -570,7 +570,7 @@ class Storage(RepoBase, StorageMixIn):
                 for i, item in enumerate(all_items):
                     tg.add_task(
                         task_id=i,
-                        func=self._add_item_to_directory_public_link,
+                        func=self._public_link.add_item_to_directory_public_link,
                         item=item,
                         link_uuid=link_uuid,
                         key=link_key,
@@ -588,33 +588,6 @@ class Storage(RepoBase, StorageMixIn):
     def remove_folder_public_link(self, item_uuid: ItemId) -> None:
         self._api.v3.dir.link_remove(StorageItemUUIDRequestData(uuid=item_uuid))
 
-    def _add_item_to_directory_public_link(
-        self,
-        item: FileInfo | FolderInfo,
-        link_uuid: UUID,
-        key: str,
-        key_enc: str,
-        expiration: PublicLinkExpiration,
-    ) -> None:
-        if item.type == 'folder':
-            metadata = FolderMetadata(name=item.name)
-        else:
-            metadata = item.metadata
-
-        metadata_enc = encrypt_metadata_model(metadata, key)
-
-        link_add_data = FolderPublicLinkAddRequestData(
-            uuid=item.uuid,
-            parent=item.parent or BASE_PARENT,
-            link_uuid=link_uuid,
-            type=item.type,
-            metadata=metadata_enc,
-            key=key_enc,
-            expiration=expiration,
-        )
-
-        self._api.v3.dir.link_add(link_add_data)
-
 
 class AsyncStorage(AsyncRepoBase, StorageMixIn):
     """Async Storage repository"""
@@ -623,6 +596,7 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
     upload: AsyncFileUpload = repo(AsyncFileUpload)
 
     _drive_write_lock: AsyncLock = repo(AsyncLock, resource=LockResource.drive_write)
+    _public_link: AsyncPublicLink = repo(AsyncPublicLink)
 
     async def base_folder(self) -> UUID:
         return await self._ensure_base_folder_uuid()
@@ -1045,7 +1019,7 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
                 for i, item in enumerate(all_items):
                     tg.add_task(
                         task_id=i,
-                        func=self._add_item_to_directory_public_link,
+                        func=self._public_link.add_item_to_directory_public_link,
                         item=item,
                         link_uuid=link_uuid,
                         key=link_key,
@@ -1062,30 +1036,3 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
 
     async def remove_folder_public_link(self, item_uuid: ItemId) -> None:
         await self._api.v3.dir.link_remove(StorageItemUUIDRequestData(uuid=item_uuid))
-
-    async def _add_item_to_directory_public_link(
-        self,
-        item: FileInfo | FolderInfo,
-        link_uuid: UUID,
-        key: str,
-        key_enc: str,
-        expiration: PublicLinkExpiration,
-    ) -> None:
-        if item.type == 'folder':
-            metadata = FolderMetadata(name=item.name)
-        else:
-            metadata = item.metadata
-
-        metadata_enc = await self._runner.run_sync(encrypt_metadata_model, metadata, key)
-
-        link_add_data = FolderPublicLinkAddRequestData(
-            uuid=item.uuid,
-            parent=item.parent or BASE_PARENT,
-            link_uuid=link_uuid,
-            type=item.type,
-            metadata=metadata_enc,
-            key=key_enc,
-            expiration=expiration,
-        )
-
-        await self._api.v3.dir.link_add(link_add_data)

@@ -44,6 +44,7 @@ from filen.crypto import (
 from filen.errors import UploadCancelled, UploadError
 
 from ._base import AsyncRepoBase, RepoBase, repo
+from ._link import AsyncPublicLink
 from ._lock import AsyncLock, LockResource
 from .models import FileMetadata
 
@@ -102,6 +103,7 @@ class AsyncFileUpload(AsyncRepoBase):
     """Async uploading files to the storage"""
 
     _drive_write_lock: AsyncLock = repo(AsyncLock, resource=LockResource.drive_write)
+    _public_link: AsyncPublicLink = repo(AsyncPublicLink)
 
     async def from_path(
         self,
