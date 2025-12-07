@@ -820,8 +820,10 @@ class AsyncFS(AsyncRepoBase, FSMixIn):
                 )
 
             async with send_stream:
+                base_path = Path(src_path).parent.as_posix()
+
                 for tree_item in tree:
-                    local_folder_path = dst_path / tree_item.path.removeprefix(src_path).lstrip('/')
+                    local_folder_path = dst_path / tree_item.path.removeprefix(base_path).lstrip('/')
                     await local_folder_path.mkdir(parents=True, exist_ok=True)
 
                     for file_info in tree_item.files:
