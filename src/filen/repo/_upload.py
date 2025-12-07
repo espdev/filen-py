@@ -43,7 +43,8 @@ from filen.crypto import (
 )
 from filen.errors import UploadCancelled, UploadError
 
-from ._base import AsyncRepoBase, RepoBase
+from ._base import AsyncRepoBase, RepoBase, repo
+from ._lock import AsyncLock, LockResource
 from .models import FileMetadata
 
 type File = IO[bytes] | BinaryIO | anyio.AsyncFile
@@ -110,6 +111,8 @@ class FileUpload(RepoBase):
 
 class AsyncFileUpload(AsyncRepoBase):
     """Async uploading files to the storage"""
+
+    _drive_write_lock: AsyncLock = repo(AsyncLock, resource=LockResource.drive_write)
 
     async def from_path(
         self,
@@ -383,7 +386,8 @@ class AsyncFileUpload(AsyncRepoBase):
                 upload_key=upload_key,
             )
 
-            result = (await self._api.v3.file.upload.done(done_data)).data
+            async with self._drive_write_lock:
+                result = (await self._api.v3.file.upload.done(done_data)).data
 
             took = time.monotonic() - ts
             logger.debug(
