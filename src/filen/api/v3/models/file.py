@@ -1,5 +1,6 @@
 from typing import Annotated, Literal
 from hashlib import sha512
+import json
 from uuid import UUID
 
 from pydantic import Field, computed_field
@@ -65,7 +66,7 @@ class FileUploadChunkRequestData(RequestData):
         return self.dump_for_payload(exclude={'chunk'})
 
     def url_params_hash(self) -> str:
-        json_data = self.model_dump_json(exclude={'chunk'}, by_alias=True)
+        json_data = json.dumps(self.url_params, separators=(',', ':'))
         return sha512(json_data.encode()).hexdigest()
 
 
