@@ -1,7 +1,9 @@
 from ._content import decrypt_content, encrypt_content
 from ._hash import (
     combined_sha_hash_func,
+    data_hasher,
     derive_hmac_sha256_key,
+    hash_data,
     hash_file,
     hash_name,
     hash_public_link_password,
@@ -14,6 +16,8 @@ from ._key import (
     encrypt_master_keys,
     generate_file_encryption_key,
     generate_metadata_encryption_key,
+    generate_rm,
+    generate_upload_key,
 )
 from ._keypair import KeyPair, create_der_keypair, generate_private_key, keypair_der_to_pem
 from ._metadata import (
@@ -47,12 +51,16 @@ __all__ = [
     'keypair_der_to_pem',
     'hash_name',
     'hash_file',
+    'hash_data',
+    'data_hasher',
     'hash_public_link_password',
     'combined_sha_hash_func',
     'hmac_sha256_hash_func',
     'derive_hmac_sha256_key',
     'generate_metadata_encryption_key',
     'generate_file_encryption_key',
+    'generate_rm',
+    'generate_upload_key',
     'generate_random_hex_string',
     'generate_random_string',
     'generate_random_bytes',

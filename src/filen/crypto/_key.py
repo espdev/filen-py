@@ -81,3 +81,11 @@ def generate_metadata_encryption_key(version: MetadataEncryptionVersion = METADA
         return generate_random_string(ENCRYPTION_KEY_LENGTH)
     else:
         return generate_random_hex_string(ENCRYPTION_KEY_LENGTH)
+
+
+def generate_rm():
+    return generate_random_string(ENCRYPTION_KEY_LENGTH)
+
+
+def generate_upload_key():
+    return generate_random_string(ENCRYPTION_KEY_LENGTH)

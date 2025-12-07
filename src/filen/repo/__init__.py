@@ -9,15 +9,19 @@ from ._base import AsyncEnsureContextMixIn, AsyncRepoBase, EnsureContextMixIn, R
 from ._download import (
     AsyncDownloadStatusCallback,
     AsyncFileDownload,
-    AsyncFileDownloadController,
-    DownloadState,
     DownloadStatus,
     DownloadStatusCallback,
     FileDownload,
-    FileDownloadController,
 )
 from ._fs import FS, AsyncFS
 from ._storage import AsyncStorage, Storage
+from ._upload import (
+    AsyncFileUpload,
+    AsyncUploadStatusCallback,
+    FileUpload,
+    UploadStatus,
+    UploadStatusCallback,
+)
 
 __all__ = [
     'repo',
@@ -33,11 +37,13 @@ __all__ = [
     'FS',
     'AsyncFS',
     'FileDownload',
-    'FileDownloadController',
     'AsyncFileDownload',
-    'AsyncFileDownloadController',
-    'DownloadState',
     'DownloadStatus',
     'DownloadStatusCallback',
     'AsyncDownloadStatusCallback',
+    'FileUpload',
+    'AsyncFileUpload',
+    'UploadStatus',
+    'UploadStatusCallback',
+    'AsyncUploadStatusCallback',
 ]

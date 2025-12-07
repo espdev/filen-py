@@ -3,7 +3,7 @@ from hashlib import sha512
 import json
 from uuid import UUID
 
-from pydantic import Field, computed_field
+from pydantic import Field, computed_field, field_serializer
 
 from filen.config import FileEncryptionVersion
 
@@ -61,6 +61,10 @@ class FileUploadChunkRequestData(RequestData):
     hash: str
     chunk: bytes
 
+    @field_serializer('index', mode='plain')
+    def _serialize_index(self, v) -> str:
+        return str(v)
+
     @property
     def url_params(self) -> dict[str, str | int]:
         return self.dump_for_payload(exclude={'chunk'})
@@ -99,8 +103,10 @@ class FileUploadEmpty(FileUploadBase):
 
 
 class FileUploadStatus(ValidationAliasedModel):
-    chunks: int
+    uuid: UUID
     size: int
+    chunks: int
+    timestamp: int
 
 
 class FileUploadStatusResponseData(ResponseData[FileUploadStatus]): ...

@@ -53,6 +53,8 @@ DEFAULT_TASK_GROUP_CONCURRENCY: Final = 200
 
 STORAGE_ROOT_NAME: Final = 'default'
 
+FALLBACK_MIME_TYPE: Final = 'application/octet-stream'
+
 DEFAULT_UPLOAD_REGION: Final = 'de-1'
 DEFAULT_UPLOAD_BUCKET: Final = 'filen-1'
 
@@ -65,6 +67,8 @@ MAX_CONCURRENT_DOWNLOADS: Final = 16
 
 UPLOAD_CHUNKS_CONCURRENCY: Final = 16
 MAX_CONCURRENT_UPLOADS: Final = 8
+
+DEBUG_PRINT_INTERVAL: Final = 50
 
 
 class AuthVersion(IntEnum):
@@ -133,6 +137,9 @@ class FilenConfig(BaseSettings):
     download_chunks_concurrency: int = DOWNLOAD_CHUNKS_CONCURRENCY
     max_concurrent_downloads: int = MAX_CONCURRENT_DOWNLOADS
     download_chunks_backpressure: int = DOWNLOAD_CHUNKS_BACKPRESSURE
+
+    upload_chunks_concurrency: int = UPLOAD_CHUNKS_CONCURRENCY
+    max_concurrent_uploads: int = MAX_CONCURRENT_UPLOADS
 
     model_config = SettingsConfigDict(
         frozen=True,

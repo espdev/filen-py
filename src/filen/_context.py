@@ -37,7 +37,10 @@ class Context:
     download_chunks_concurrency: int
     download_chunks_backpressure: int
     concurrent_downloads_semaphore: threading.Semaphore
+
+    upload_chunks_concurrency: int
     async_concurrent_downloads_semaphore: anyio.Semaphore
+    async_concurrent_uploads_semaphore: anyio.Semaphore
 
     @classmethod
     def create_from_config(cls, config: FilenConfig) -> Self:
@@ -56,7 +59,9 @@ class Context:
             download_chunks_concurrency=config.download_chunks_concurrency,
             download_chunks_backpressure=config.download_chunks_backpressure,
             concurrent_downloads_semaphore=threading.Semaphore(config.max_concurrent_downloads),
+            upload_chunks_concurrency=config.upload_chunks_concurrency,
             async_concurrent_downloads_semaphore=anyio.Semaphore(config.max_concurrent_downloads),
+            async_concurrent_uploads_semaphore=anyio.Semaphore(config.max_concurrent_uploads),
         )
 
     @property

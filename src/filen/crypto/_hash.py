@@ -14,6 +14,8 @@ from ._utils import generate_random_string
 
 HMAC_KEY_LENGTH: Final = 32
 
+data_hasher = sha512
+
 
 def derive_hmac_sha256_key(private_key: str) -> bytes:
     """Derive hmac SHA-256 key from a user private key for using in hmac hash fucntion"""
@@ -62,7 +64,11 @@ def hash_name(name: str, auth_version: AuthVersion | int, hmac_key: bytes | None
 
 def hash_file(file_path: PathLike) -> str:
     with open(file_path, 'rb') as fp:
-        return file_digest(fp, 'sha512').hexdigest()
+        return file_digest(fp, data_hasher).hexdigest()
+
+
+def hash_data(data: bytes) -> str:
+    return data_hasher(data).hexdigest()
 
 
 class HashedPasswordAndSalt(NamedTuple):

@@ -35,6 +35,7 @@ from filen.errors import StorageError
 from ._base import AsyncRepoBase, RepoBase, repo
 from ._download import AsyncFileDownload, FileDownload
 from ._lock import AsyncLock, Lock, LockResource
+from ._upload import AsyncFileUpload, FileUpload
 from .models import (
     CreateFolderInfo,
     FileInfo,
@@ -143,6 +144,7 @@ class Storage(RepoBase, StorageMixIn):
     """
 
     download: FileDownload = repo(FileDownload)
+    upload: FileUpload = repo(FileUpload)
 
     _drive_write_lock: Lock = repo(Lock, resource=LockResource.drive_write)
 
@@ -618,6 +620,7 @@ class AsyncStorage(AsyncRepoBase, StorageMixIn):
     """Async Storage repository"""
 
     download: AsyncFileDownload = repo(AsyncFileDownload)
+    upload: AsyncFileUpload = repo(AsyncFileUpload)
 
     _drive_write_lock: AsyncLock = repo(AsyncLock, resource=LockResource.drive_write)
 
