@@ -86,7 +86,7 @@ class Lock(RepoBase):
                 )
 
                 if response.data.acquired:
-                    logger.info('Server lock for %r acquired.', self._resource)
+                    logger.debug('Server lock for %r acquired.', self._resource)
                     state['refresh_thread'] = threading.Thread(target=self._refresh_loop, daemon=True)
                     state['refresh_thread'].start()
                     return
@@ -125,7 +125,7 @@ class Lock(RepoBase):
 
                 if not response.data.released:
                     raise RuntimeError(f'Server failed to release lock for resource {self._resource!r}')
-                logger.info('Server lock for %r released.', self._resource)
+                logger.debug('Server lock for %r released.', self._resource)
             except Exception as err:
                 state['count'] += 1
                 logger.error('Failed to release lock for resource %r: %s', self._resource, err, exc_info=True)
@@ -205,7 +205,7 @@ class AsyncLock(AsyncRepoBase):
                     LockRequestData(uuid=self._lock_uuid, resource=self._resource, type='acquire')
                 )
                 if response.data.acquired:
-                    logger.info('Async server lock for %r acquired.', self._resource)
+                    logger.debug('Async server lock for %r acquired.', self._resource)
                     state['refresh_task'] = asyncio.create_task(self._refresh_loop())
                     return
                 tries += 1
@@ -239,7 +239,7 @@ class AsyncLock(AsyncRepoBase):
                 )
                 if not response.data.released:
                     raise RuntimeError(f'Server failed to release async lock for {self._resource!r}')
-                logger.info('Async server lock for %r released.', self._resource)
+                logger.debug('Async server lock for %r released.', self._resource)
             except Exception as err:
                 state['count'] += 1
                 logger.error('Failed to release async lock for %r: %s', self._resource, err, exc_info=True)
