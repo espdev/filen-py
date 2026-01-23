@@ -26,7 +26,7 @@ class PublicLinkMixIn:
 
 
 class PublicLink(RepoBase, PublicLinkMixIn):
-    async def folder_public_linked(self, item_uuid: ItemId) -> FolderLinked:
+    def folder_public_linked(self, item_uuid: ItemId) -> FolderLinked:
         folder_linked = self._api.v3.dir.linked(data=StorageItemUUIDRequestData(uuid=item_uuid)).data
         key = self._ensure_master_key()
 
