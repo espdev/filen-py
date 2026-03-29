@@ -122,13 +122,14 @@ class AsyncFileUpload(AsyncRepoBase):
 
         stat = await apath.stat()
         mime = guess_type(path)[0] or FALLBACK_MIME_TYPE
+        file_hash = await self._runner.run_sync(hash_file, apath)
 
         metadata = FileMetadata(
             name=apath.name,
             size=stat.st_size,
             mime=mime,
             key='',
-            hash=hash_file(apath),
+            hash=file_hash,
             created=round(stat.st_ctime_ns / 1e6),
             last_modified=round(stat.st_mtime_ns / 1e6),
         )
